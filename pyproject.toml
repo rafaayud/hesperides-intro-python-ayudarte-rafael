@@ -1,0 +1,14 @@
+[project]
+name = "codigo"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "aiohttp>=3.13.2",
+    "asyncpg>=0.31.0",
+    "numpy>=2.4.0",
+    "pandas>=2.3.3",
+    "polars>=1.36.1",
+    "tenacity>=9.1.2",
+]
