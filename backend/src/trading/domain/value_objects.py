@@ -65,8 +65,8 @@ class Symbol():
     symbol: str
 
     def __post_init__(self) -> None:
-        if not self.symbol.isalpha():
-            raise ValueError("Base and quote must be alphabetic")
+        #if not self.symbol.isalpha():
+        #    raise ValueError("Base and quote must be alphabetic")
 
         if not self.symbol.endswith("USDT"):
             raise ValueError("Symbol must end with USDT")
@@ -77,8 +77,8 @@ class Symbol():
     def __repr__(self) -> str:
         return f"Symbol({self.symbol})"
 
-class TimeFrame(Enum):
-    """Timeframes for candles."""
+class Interval(Enum):
+    """Intervals for candles."""
     M1 = "1m"
     M5 = "5m"
     M15 = "15m"
@@ -86,24 +86,21 @@ class TimeFrame(Enum):
     H4 = "4h"
     D1 = "1d"
     W1 = "1w"
-    MO1 = "1mo"
-    MO3 = "3mo"
-    Y1 = "1y"
+    MO1 = "1M"
+    
 
     @property
     def max_candles(self) -> int:
-        """Maximum number of candles for a given timeframe"""
+        """Maximum number of candles for a given interval"""
         limits = {
-            TimeFrame.M1: 10000,
-            TimeFrame.M5: 10000,
-            TimeFrame.M15: 10000,
-            TimeFrame.H1: 10000,
-            TimeFrame.H4: 10000,
-            TimeFrame.D1: 10000,
-            TimeFrame.W1: 1000,
-            TimeFrame.MO1: 1000,
-            TimeFrame.MO3: 400,
-            TimeFrame.Y1: 200,
+            Interval.M1: 10000,
+            Interval.M5: 10000,
+            Interval.M15: 10000,
+            Interval.H1: 10000,
+            Interval.H4: 10000,
+            Interval.D1: 10000,
+            Interval.W1: 1000,
+            Interval.MO1: 1000,
         }
         return limits.get(self, 1000)
 
@@ -168,7 +165,7 @@ class Candle_static:
     low: Price
     close: Price
     volume: Quantity
-    interval: TimeFrame
+    interval: Interval
     timestamp: Timestamp
 
     def __str__(self) -> str:
@@ -222,6 +219,7 @@ class Candle_static:
         
         logger.debug("\n".join(lines)) 
 
+
 class TradeStatus(Enum):
     """Status of a trade."""
     PENDING = "PENDING"
@@ -244,7 +242,64 @@ class Side(Enum):
     def opposite(self) -> "Side":
         return Side.SELL if self == Side.BUY else Side.BUY
 
+
+@dataclass(frozen=True, slots=True)
+class PnL:
+    """
+    Profit and Loss value object.
+    Unlike Price, PnL can be negative (losses) or positive (gains).
+    """
+    value: Decimal
+    
+    def __str__(self) -> str:
+        sign = "+" if self.value >= 0 else ""
+        return f"{sign}{self.value}"
+    
+    def __float__(self) -> float:
+        return float(self.value)
+    
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, PnL):
+            return self.value == other.value
+        if isinstance(other, (int, float, Decimal)):
+            return self.value == Decimal(str(other))
+        return NotImplemented
+    
+    def __lt__(self, other: "PnL") -> bool:
+        return self.value < other.value
+    
+    def __le__(self, other: "PnL") -> bool:
+        return self.value <= other.value
+    
+    def __gt__(self, other: "PnL") -> bool:
+        return self.value > other.value
+    
+    def __ge__(self, other: "PnL") -> bool:
+        return self.value >= other.value
+    
+    def __add__(self, other: "PnL") -> "PnL":
+        return PnL(self.value + other.value)
+    
+    def __sub__(self, other: "PnL") -> "PnL":
+        return PnL(self.value - other.value)
+    
+    def __mul__(self, other: Decimal | int | float) -> "PnL":
+        return PnL(self.value * Decimal(str(other)))
+    
+    def __truediv__(self, other: Decimal | int | float) -> "PnL":
+        return PnL(self.value / Decimal(str(other)))
+    
+    @property
+    def is_positive(self) -> bool:
+        """Returns True if PnL is positive (profit)"""
+        return self.value > 0
+    
+    @property
+    def is_negative(self) -> bool:
+        """Returns True if PnL is negative (loss)"""
+        return self.value < 0
+
 __all__ = [
-      "Symbol", "Price",
-    "Quantity", "Timestamp", "Candle_static", "TimeFrame", "TradeStatus", "Signal", "Side"
+    "Symbol", "Price", "Quantity", "Timestamp", "Candle_static", "Interval", 
+    "TradeStatus", "Signal", "Side", "PnL"
 ]

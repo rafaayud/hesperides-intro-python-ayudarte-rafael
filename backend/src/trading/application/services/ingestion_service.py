@@ -1,10 +1,10 @@
 from trading.domain.entities import Candle
-from trading.domain.value_objects import Symbol, TimeFrame, Candle_static, Timestamp
+from trading.domain.value_objects import Symbol, Interval, Candle_static, Timestamp
 from trading.domain.ports import StoragePort, ExchangePort, StreamPort
 from typing import Optional, AsyncIterator
 import logging
 import asyncio
-from asyncio import Queue
+from asyncio import Semaphore
 
 
 
@@ -16,14 +16,10 @@ class DataIngestionService:
     Implements a rolling window strategy to maintain a fixed number of candles
     per symbol/interval, preventing unbounded database growth.
     
-    Default: 1000 candles per symbol/interval (safe for 7GB DB with 10 symbols)
     """
     
     def __init__(
-        self, 
-        storage: StoragePort, 
-        exchange: ExchangePort,
-    ) -> None:
+        self, storage: StoragePort, exchange: ExchangePort) -> None:
         """
         Initialize the ingestion service.
         
@@ -77,7 +73,7 @@ class DataIngestionService:
             self._logger.error(f"Error disconnecting from exchange and storage: {e}")
             raise
 
-    async def ingest_historical_data(self, symbol: Symbol, interval: TimeFrame) -> list[Candle_static]:
+    async def ingest_historical_data(self, symbol: Symbol, interval: Interval) -> list[Candle_static]:
         """Ingest historical data from the exchange"""
         if not self._connected:
             raise RuntimeError("Service not connected. Call startup() first.")
@@ -106,7 +102,7 @@ class DataIngestionService:
             self._logger.error(f"Error storing candles: {e}")
             raise
 
-    async def check_number_of_candles(self, symbol: Symbol, interval: TimeFrame) -> int:
+    async def check_number_of_candles(self, symbol: Symbol, interval: Interval) -> int:
         """Get the number of candles in storage for a symbol/interval"""
         if not self._connected:
             raise RuntimeError("Service not connected. Call startup() first.")
@@ -119,7 +115,7 @@ class DataIngestionService:
             self._logger.error(f"Error checking number of candles: {e}")
             raise
 
-    async def maintain_rolling_window(self, symbol: Symbol, interval: TimeFrame) -> None:
+    async def maintain_rolling_window(self, symbol: Symbol, interval: Interval) -> None:
         """Delete oldest candles if count exceeds max_candles_per_symbol"""
         if not self._connected:
             raise RuntimeError("Service not connected. Call startup() first.")
@@ -139,7 +135,7 @@ class DataIngestionService:
             self._logger.error(f"Error maintaining rolling window: {e}")
             raise
 
-    async def full_ingestion(self, symbol: Symbol, interval: TimeFrame) -> None:
+    async def full_ingestion(self, symbol: Symbol, interval: Interval) -> None:
         """Run the ingestion service"""
         if not self._connected:
             raise RuntimeError("Service not connected. Call startup() first.")
@@ -159,7 +155,7 @@ class DataIngestionService:
             self._logger.error(f"Error running ingestion service: {e}")
             raise
 
-    async def sync_data(self, symbol: Symbol, interval: TimeFrame) -> None:
+    async def sync_data(self, symbol: Symbol, interval: Interval) -> None:
         """Download only new candles from the exchange"""
         if not self._connected:
             raise RuntimeError("Service not connected. Call startup() first.")
@@ -183,6 +179,25 @@ class DataIngestionService:
         except Exception as e:
             self._logger.error(f"Error syncing data: {e}")
             raise
+
+    async def sync_all(self, symbols: list[Symbol], intervals: list[Interval], max_concurrent: int = 10) -> None:
+        """Sync multiple symbols/intervals with concurrency limit"""
+        
+        semaphore = asyncio.Semaphore(max_concurrent)
+        
+        async def _sync_with_limit(symbol: Symbol, interval: Interval) -> None:
+            async with semaphore:
+                await self.sync_data(symbol, interval)
+        
+        tasks = [
+            _sync_with_limit(symbol, interval)
+            for symbol in symbols
+            for interval in intervals
+        ]
+        
+        await asyncio.gather(*tasks)
+        self._logger.info(f"Completed syncing {len(tasks)} symbol/interval pairs")
+
 
 
     async def __aenter__(self) -> "DataIngestionService":

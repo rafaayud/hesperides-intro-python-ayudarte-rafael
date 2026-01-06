@@ -1,5 +1,5 @@
 from trading.domain.ports import StreamPort
-from trading.domain.value_objects import Symbol, TimeFrame, Price, Quantity, Timestamp, Candle_static
+from trading.domain.value_objects import Symbol, Interval, Price, Quantity, Timestamp, Candle_static
 from trading.domain.entities import Candle
 import asyncio
 import aiohttp
@@ -54,7 +54,7 @@ class BinanceStreamAdapter(StreamPort):
             self.running = False
     
     @retry(stop=stop_after_attempt(5), wait=wait_exponential(multiplier=1, min=4, max=15))
-    async def _subscribe_to_symbol(self, symbol: Symbol, interval: TimeFrame) -> None:
+    async def _subscribe_to_symbol(self, symbol: Symbol, interval: Interval) -> None:
         """Subscribe to a symbol and interval"""
         if self._session is None:
             raise RuntimeError("Session not created")
@@ -78,7 +78,7 @@ class BinanceStreamAdapter(StreamPort):
             raise
     
 
-    async def get_live_candle(self, symbol: Symbol, interval: TimeFrame) -> Candle:
+    async def get_live_candle(self, symbol: Symbol, interval: Interval) -> Candle:
         """Get live candle from the Binance stream"""
 
         if self._ws is None:
@@ -121,7 +121,7 @@ class BinanceStreamAdapter(StreamPort):
         k = data["k"]
         
         symbol = Symbol(k["s"])
-        timeframe = TimeFrame(k["i"])
+        interval = Interval(k["i"])
         
         ohlcv = Candle_static(
             symbol=symbol,
@@ -131,12 +131,12 @@ class BinanceStreamAdapter(StreamPort):
             low=Price(Decimal(k["l"])),
             close=Price(Decimal(k["c"])),
             volume=Quantity(Decimal(k["v"])),
-            interval=timeframe
+            interval=interval
         )
         
         return Candle(
             symbol=symbol,
-            timeframe=timeframe,
+            interval=interval,
             open_time=Timestamp(datetime.fromtimestamp(k["t"] / 1000)),
             close_time=Timestamp(datetime.fromtimestamp(k["T"] / 1000)),
             ohlcv=ohlcv,
@@ -146,7 +146,7 @@ class BinanceStreamAdapter(StreamPort):
             is_closed=k["x"]
         )
 
-    async def stream_candle(self, symbol:Symbol, interval:TimeFrame) -> AsyncIterator[Candle]:
+    async def stream_candle(self, symbol:Symbol, interval:Interval) -> AsyncIterator[Candle]:
         """Stream the candle from the Binance stream"""
         
         try:

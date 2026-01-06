@@ -1,8 +1,8 @@
 from abc import ABC, abstractmethod
 from trading.domain.entities import Candle
-from trading.domain.value_objects import Symbol, TimeFrame, Signal
+from trading.domain.value_objects import Symbol, Interval, Signal
 from typing import List
-from asyncio import AsyncIterator
+#from asyncio import AsyncIterator
 
 class Strategy(ABC):
     """Base class for all strategies"""

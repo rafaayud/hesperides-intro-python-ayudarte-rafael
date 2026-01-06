@@ -15,17 +15,17 @@ class MeanCross(Strategy):
 
     def generate_signal(self, candles: List[Candle]) -> Signal:
         if len(candles) < self._min_candles:
-            return Signal.HOLDjajaj
+            return Signal.HOLD
         
-        prices = [c.close for c in candles]
+        prices = [float(c.close.value) for c in candles]
         
         # Moving averages
-        fast_ma = sum(prices[-self._fast:]) / self._fast
-        slow_ma = sum(prices[-self._slow:]) / self._slow
+        fast_ma = sum(prices[-self._fast_period:]) / self._fast_period
+        slow_ma = sum(prices[-self._slow_period:]) / self._slow_period
         
         # Previous moving averages (without last candle)
-        prev_fast = sum(prices[-self._fast-1:-1]) / self._fast
-        prev_slow = sum(prices[-self._slow-1:-1]) / self._slow
+        prev_fast = sum(prices[-self._fast_period-1:-1]) / self._fast_period
+        prev_slow = sum(prices[-self._slow_period-1:-1]) / self._slow_period
         
         # Detect cross
         if fast_ma > slow_ma and prev_fast <= prev_slow:

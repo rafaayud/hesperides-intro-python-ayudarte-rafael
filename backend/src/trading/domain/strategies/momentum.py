@@ -1,7 +1,6 @@
 from trading.domain.entities import Candle
-from trading.domain.value_objects import Symbol, TimeFrame
-from trading.domain.strategies import Strategy
-from typing import List
+from trading.domain.value_objects import Symbol, Interval
+from trading.domain.strategies.base import Strategy
 from trading.domain.value_objects import Signal
 
 class Momentum(Strategy):
@@ -13,7 +12,7 @@ class Momentum(Strategy):
         self._reference_period = reference_period
         self._threshold = threshold
 
-    def generate_signal(self, candles: List[Candle]) -> Signal:
+    def generate_signal(self, candles: list[Candle]) -> Signal:
         if len(candles) < self._min_candles:
             return Signal.HOLD
 

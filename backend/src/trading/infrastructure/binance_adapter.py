@@ -1,9 +1,8 @@
 import aiohttp
 import asyncio
 from trading.domain.ports import ExchangePort
-from trading.domain.value_objects import Symbol, TimeFrame
+from trading.domain.value_objects import Symbol, Interval, Timestamp, Price, Quantity, Candle_static
 from trading.domain.entities import Candle
-from trading.domain.value_objects import Timestamp, Price, Quantity, Candle_static
 from decimal import Decimal
 from typing import AsyncIterator
 from datetime import datetime
@@ -90,7 +89,7 @@ class BinanceAdapter(ExchangePort):
             raise
 
 
-    async def get_historical_candles(self, symbol: Symbol,  interval: TimeFrame, limit: int) -> list[Candle_static]:
+    async def get_historical_candles(self, symbol: Symbol,  interval: Interval, limit: int) -> list[Candle_static]:
         """Get historical candles from the Binance exchange"""
 
 
@@ -116,7 +115,8 @@ class BinanceAdapter(ExchangePort):
             async with self._session.get(f"{self.rest_url}/api/v3/klines", params=params) as response:
                 data = await response.json()
 
-            if not data:
+            if not data or isinstance(data, dict):
+                logging.error(f"No data found for {symbol} {data}")
                 break
 
             candles = [self._parse_candle(symbol, item, interval) for item in data]
@@ -131,7 +131,7 @@ class BinanceAdapter(ExchangePort):
 
         return all_candles
     
-    async def get_candles_since(self, symbol: Symbol, interval: TimeFrame, start_time: Timestamp) -> list[Candle_static]:
+    async def get_candles_since(self, symbol: Symbol, interval: Interval, start_time: Timestamp) -> list[Candle_static]:
         """Get candles from start_time until now."""
 
         all_candles: list[Candle_static] = []
@@ -149,8 +149,10 @@ class BinanceAdapter(ExchangePort):
             async with self._session.get(f"{self.rest_url}/api/v3/klines", params=params) as response:
                 data = await response.json()
 
-            if not data:
+            if not data or isinstance(data, dict):
+                logging.error(f"No data found for {symbol} {data}")
                 break
+            
 
             candles = [self._parse_candle(symbol, item, interval) for item in data]
             all_candles.extend(candles)
@@ -166,7 +168,8 @@ class BinanceAdapter(ExchangePort):
             
         
     
-    def _parse_candle(self, symbol: Symbol, raw: list, interval: TimeFrame) -> Candle_static:
+    def _parse_candle(self, symbol: Symbol, raw: list, interval: Interval) -> Candle_static:
+        
         return Candle_static(
             symbol=symbol,
             timestamp=Timestamp(datetime.fromtimestamp(int(raw[0])/1000)),

@@ -10,7 +10,7 @@ from trading.domain.strategies.patterns import patterns_list
 class CandlePatternStrategy(Strategy):
     """Strategy that detects candlestick patterns"""
     
-    def __init__(self, patterns: List[CandlestickPattern] = None):
+    def __init__(self, patterns: list[CandlestickPattern] | None = None) -> None:
         """Initialize the CandlePatternStrategy with the default patterns"""
         if patterns is None:
             patterns = patterns_list
@@ -23,7 +23,7 @@ class CandlePatternStrategy(Strategy):
             min_candles=max_candles
         )
     
-    def generate_signal(self, candles: List[Candle]) -> Signal:
+    def generate_signal(self, candles: list[Candle]) -> Signal:
         if len(candles) < self._min_candles:
             return Signal.HOLD
         

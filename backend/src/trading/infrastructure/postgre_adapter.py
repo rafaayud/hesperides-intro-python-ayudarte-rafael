@@ -1,6 +1,6 @@
 from trading.domain.ports import StoragePort
 from trading.domain.entities import Candle
-from trading.domain.value_objects import Symbol, TimeFrame, Candle_static, Timestamp, Price, Quantity
+from trading.domain.value_objects import Symbol, Interval, Candle_static, Timestamp, Price, Quantity
 import asyncpg
 import logging
 from tenacity import retry, stop_after_attempt, wait_exponential
@@ -62,9 +62,9 @@ class PostgreAdapter(StoragePort):
             )
         except Exception as e:
             logging.error(f"Error saving candles: {e}")
-            raise
+            
 
-    async def get_candles(self, symbol: Symbol, interval: TimeFrame, limit: int) -> list[Candle_static]:
+    async def get_candles(self, symbol: Symbol, interval: Interval, limit: int) -> list[Candle_static]:
         """Get candles for a symbol and interval"""
         if not self._pool:
             raise ValueError("Database not connected")
@@ -75,7 +75,7 @@ class PostgreAdapter(StoragePort):
                     """
                     SELECT * FROM candles
                     WHERE symbol = $1 AND interval = $2
-                    ORDER BY open_time DESC
+                    ORDER BY open_time ASC
                     LIMIT $3
                     """,
                     str(symbol), interval.value, limit)
@@ -90,7 +90,7 @@ class PostgreAdapter(StoragePort):
     def _convert_to_candle_static(self, row: dict) -> Candle_static:
         return Candle_static(
             symbol=Symbol(row["symbol"]),
-            interval=TimeFrame(row["interval"]),
+            interval=Interval(row["interval"]),
             timestamp=Timestamp(row["open_time"]),
             open=Price(row["open"]),
             high=Price(row["high"]),
@@ -100,7 +100,7 @@ class PostgreAdapter(StoragePort):
         )
 
 
-    async def get_last_candle(self, symbol: Symbol, interval: TimeFrame) -> Candle_static:
+    async def get_last_candle(self, symbol: Symbol, interval: Interval) -> Candle_static:
         """Get the last candle for a symbol and interval"""
         if not self._pool:
             raise ValueError("Database not connected")
@@ -126,7 +126,7 @@ class PostgreAdapter(StoragePort):
             raise
                              
 
-    async def delete_candles(self, symbol: Symbol, interval: TimeFrame, limit: int | None = None) -> int:
+    async def delete_candles(self, symbol: Symbol, interval: Interval, limit: int | None = None) -> int:
         """Delete candles for a symbol and interval"""
         if not self._pool:
             raise ValueError("Database not connected")
@@ -164,7 +164,7 @@ class PostgreAdapter(StoragePort):
 
 
     
-    async def count_candles(self, symbol: Symbol, interval: TimeFrame) -> int:
+    async def count_candles(self, symbol: Symbol, interval: Interval) -> int:
         """Count the number of candles for a symbol and interval"""
         if not self._pool:
             raise ValueError("Database nor connected")

@@ -1,6 +1,6 @@
-from abc import ABC, abstractmethod
+from abc import ABC, abstractmethod, ABCMeta
 from typing import AsyncIterator
-from .value_objects import Symbol, Price, TimeFrame, Candle_static, Timestamp
+from .value_objects import Symbol, Price, Interval, Candle_static, Timestamp
 from .entities import Candle
 
 """The ports are the interfaces that the application uses to interact with the external world. Here we
@@ -17,11 +17,11 @@ class ExchangePort(ABC):
         """Disconnect from the exchange"""
     
     @abstractmethod
-    async def get_historical_candles(self, symbol: Symbol, timeframe: TimeFrame, limit: int) -> list[Candle_static]:
+    async def get_historical_candles(self, symbol: Symbol, interval: Interval, limit: int) -> list[Candle_static]:
         """Get candles from the exchange"""
         
     @abstractmethod
-    async def get_candles_since(self, symbol: Symbol, timeframe: TimeFrame, start_time: Timestamp) -> list[Candle_static]:
+    async def get_candles_since(self, symbol: Symbol, interval: Interval, start_time: Timestamp) -> list[Candle_static]:
         """Get candles from start_time until now"""
 
 class StreamPort(ABC):
@@ -39,7 +39,7 @@ class StreamPort(ABC):
         """"""
 
     @abstractmethod
-    async def stream_candle(self, symbol: Symbol, interval: TimeFrame) -> AsyncIterator[Candle]:
+    async def stream_candle(self, symbol: Symbol, interval: Interval) -> AsyncIterator[Candle]:
         """Stream a candle from the exchange"""
 
 class StoragePort(ABC):
@@ -57,19 +57,19 @@ class StoragePort(ABC):
         """Save candles to the database"""
     
     @abstractmethod
-    async def get_candles(self, symbol: Symbol, timeframe: TimeFrame, limit: int) -> list[Candle]:
+    async def get_candles(self, symbol: Symbol, interval: Interval, limit: int) -> list[Candle_static]:
         """Get candles from the database"""
 
     @abstractmethod
-    async def get_last_candle(self, symbol: Symbol, timeframe: TimeFrame) -> Candle:
+    async def get_last_candle(self, symbol: Symbol, interval: Interval) -> Candle_static:
         """Get the last candle from the database"""
     
     @abstractmethod
-    async def delete_candles(self, symbol: Symbol, timeframe: TimeFrame, limit: int) -> int:
+    async def delete_candles(self, symbol: Symbol, interval: Interval, limit: int) -> int:
         """Delete candles from the database"""
 
     @abstractmethod
-    async def count_candles(self, symbol: Symbol, timeframe: TimeFrame) -> int:
+    async def count_candles(self, symbol: Symbol, interval: Interval) -> int:
         """Count the number of candles in the database"""
     
 
