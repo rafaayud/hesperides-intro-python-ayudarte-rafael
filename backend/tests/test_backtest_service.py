@@ -1,6 +1,7 @@
 from src.trading.application.services.backtest_service import BacktestService
 from src.trading.domain.value_objects import Symbol, Interval, Candle_static, Signal, Side, Quantity, TradeStatus
-from src.trading.domain.entities import Candle, Position, Trade, BacktestResult
+from src.trading.domain.entities import Candle, Position, Trade
+from src.trading.domain.aggregates.backtest_result import BacktestResult
 from src.trading.domain.strategies import MeanCross, Momentum
 from src.trading.infrastructure import PostgreAdapter
 import asyncio

@@ -14,6 +14,7 @@ class MeanCross(Strategy):
         self._fast_period = fast_period
 
     def generate_signal(self, candles: List[Candle]) -> Signal:
+        
         if len(candles) < self._min_candles:
             return Signal.HOLD
         

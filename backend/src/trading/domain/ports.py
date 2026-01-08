@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod, ABCMeta
 from typing import AsyncIterator
-from .value_objects import Symbol, Price, Interval, Candle_static, Timestamp
-from .entities import Candle
+from .value_objects import Symbol, Price, Interval, Candle_static, Timestamp, TradeStatus
+from .entities import Candle, Order
 
 """The ports are the interfaces that the application uses to interact with the external world. Here we
 define the interfaces for the exchange, the database and the trading engine."""
@@ -18,7 +18,7 @@ class ExchangePort(ABC):
     
     @abstractmethod
     async def get_historical_candles(self, symbol: Symbol, interval: Interval, limit: int) -> list[Candle_static]:
-        """Get candles from the exchange"""
+        """Get candles from the exchange from now until limit candles ago"""
         
     @abstractmethod
     async def get_candles_since(self, symbol: Symbol, interval: Interval, start_time: Timestamp) -> list[Candle_static]:
@@ -36,7 +36,7 @@ class StreamPort(ABC):
     
     @abstractmethod
     async def get_live_candle(self, symbol: Symbol ) -> Candle:
-        """"""
+        """Get the live candle from the exchange"""
 
     @abstractmethod
     async def stream_candle(self, symbol: Symbol, interval: Interval) -> AsyncIterator[Candle]:
@@ -73,10 +73,21 @@ class StoragePort(ABC):
         """Count the number of candles in the database"""
     
 
+class orderPort(ABC):
+    """Port for the order execution"""
 
+    @abstractmethod
+    async def send_order(self, order: Order) -> None:
+        """Execute an order"""
 
-
-
+    @abstractmethod
+    async def cancel_order(self, order_id: str) -> None:
+        """Cancel an order"""
+    
+    @property
+    @abstractmethod
+    def order_status(self, order_id: str) -> TradeStatus:
+        """Get the status of an order"""
 
 
     

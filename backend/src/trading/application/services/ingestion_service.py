@@ -188,12 +188,8 @@ class DataIngestionService:
         async def _sync_with_limit(symbol: Symbol, interval: Interval) -> None:
             async with semaphore:
                 await self.sync_data(symbol, interval)
-        
-        tasks = [
-            _sync_with_limit(symbol, interval)
-            for symbol in symbols
-            for interval in intervals
-        ]
+
+        tasks =  [_sync_with_limit(symbol, interval) for symbol in symbols for interval in intervals]
         
         await asyncio.gather(*tasks)
         self._logger.info(f"Completed syncing {len(tasks)} symbol/interval pairs")

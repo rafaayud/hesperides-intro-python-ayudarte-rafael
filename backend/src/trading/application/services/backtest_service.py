@@ -1,5 +1,6 @@
 from trading.domain.value_objects import Symbol, Interval, Candle_static, Signal, Side, Quantity, TradeStatus
-from trading.domain.entities import Candle, Position, Trade, BacktestResult
+from trading.domain.entities import Candle, Position, Trade
+from trading.domain.aggregates.backtest_result import BacktestResult
 from trading.domain.strategies.base import Strategy
 from trading.domain.ports import StoragePort
 import asyncio
