@@ -19,7 +19,7 @@ async def test_ingest_and_sync(symbols: list[Symbol], intervals: list[Interval])
     """Test the ingestion and sync service"""
     try:
         async with DataIngestionService(storage=PostgreAdapter(URL_DB), exchange=BinanceAdapter()) as ingestion_service:
-            await ingestion_service.sync_all(symbols, intervals)
+            await ingestion_service.sync_all(symbols, intervals, max_concurrent=20)
     except Exception as e:
         logger.error(f"Error ingesting and syncing data: {e}")
         raise
