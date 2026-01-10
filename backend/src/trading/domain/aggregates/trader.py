@@ -19,7 +19,7 @@ class Trader:
     _position: Position = None
 
     def add_candle_and_execute_strategy(self, candle: Candle) -> Signal:
-        """Problema con las estregias, neceistan uan cantidad minima de velas cerradas!, que pasa cuando van entrando velas abiertas?"""
+        """"""
     
         self._candles.append(candle)
 

@@ -1,11 +1,13 @@
 from ..domain.ports import StoragePort
 from ..domain.entities import Candle
 from ..domain.value_objects import Symbol, Interval, Candle_static, Timestamp, Price, Quantity
+from ..domain.utils import AdapterMeta, timed_async
 import asyncpg
 import logging
 from tenacity import retry, stop_after_attempt, wait_exponential
 
-class PostgreAdapter(StoragePort):
+
+class PostgreAdapter(StoragePort, metaclass=AdapterMeta):
     """Adapter for the Postgres database"""
 
     def __init__(self, db_url: str) -> None:
@@ -35,7 +37,8 @@ class PostgreAdapter(StoragePort):
         """Exit the context manager"""
         await self.disconnect()
 
-    async def save_candles(self, candles: list[Candle_static]) -> None   :
+    @timed_async
+    async def save_candles(self, candles: list[Candle_static]) -> None:
         """Save a candle to the database"""
         logging.info(f"Saving candles: {Candle_static._print_table(candles)}")
         if not self._pool:
@@ -64,6 +67,7 @@ class PostgreAdapter(StoragePort):
             logging.error(f"Error saving candles: {e}")
             
 
+    @timed_async
     async def get_candles(self, symbol: Symbol, interval: Interval, limit: int) -> list[Candle_static]:
         """Get candles for a symbol and interval"""
         if not self._pool:

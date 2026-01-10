@@ -1,12 +1,14 @@
 from ...domain.ports import ExchangePort
 from ...domain.value_objects import Symbol, Interval, Timestamp, Candle_static, Price, Quantity
+from ...domain.utils import AdapterMeta, timed_async
 from decimal import Decimal
 from datetime import datetime
 import random
 import asyncio
 import logging
 
-class MockExchangeAdapter(ExchangePort):
+
+class MockExchangeAdapter(ExchangePort, metaclass=AdapterMeta):
     """
     Mock exchange adapter for testing.
     Generates simple random candle data.
@@ -61,6 +63,7 @@ class MockExchangeAdapter(ExchangePort):
         }
         return mapping.get(interval, 60)
     
+    @timed_async
     async def get_historical_candles(self, symbol: Symbol, interval: Interval, limit: int) -> list[Candle_static]:
         """Generate historical candles"""
         candles = []

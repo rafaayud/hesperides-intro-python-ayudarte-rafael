@@ -1,6 +1,8 @@
 from ..entities import Candle
 from ..value_objects import Symbol, Interval, Signal
+from ..utils import timed
 from .base import Strategy
+
 
 class Momentum(Strategy):
     """Momentum Strategy: Buy if the price is going up, with a reference period a few candles ago. We take the
@@ -11,10 +13,11 @@ class Momentum(Strategy):
         self._reference_period = reference_period
         self._threshold = threshold
 
+    @timed
     def generate_signal(self, candles: list[Candle]) -> Signal:
         if len(candles) < self._min_candles:
             return Signal.HOLD
-
+        
         prices = [c.close for c in candles]
 
         recent_price = prices[-1]

@@ -1,11 +1,12 @@
 from abc import ABC, abstractmethod
 from ..entities import Candle
 from ..value_objects import Symbol, Interval, Signal
+from ..utils import timed
 from typing import List
-#from asyncio import AsyncIterator
+
 
 class Strategy(ABC):
-    """Base class for all strategies"""
+    """Base class for all strategies."""
     
     def __init__(self, name: str, min_candles: int) -> None:
         self._name = name

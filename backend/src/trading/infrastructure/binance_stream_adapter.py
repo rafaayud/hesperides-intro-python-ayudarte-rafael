@@ -1,6 +1,7 @@
 from ..domain.ports import StreamPort
 from ..domain.value_objects import Symbol, Interval, Price, Quantity, Timestamp, Candle_static
 from ..domain.entities import Candle
+from ..domain.utils import AdapterMeta, timed_async
 import asyncio
 import aiohttp
 import logging
@@ -13,7 +14,8 @@ from tenacity import retry, stop_after_attempt, wait_exponential
 
 URL_STREAM = "wss://stream.binance.com:9443/ws"
 
-class BinanceStreamAdapter(StreamPort):
+
+class BinanceStreamAdapter(StreamPort, metaclass=AdapterMeta):
     """Adapter that uses a socket to get the live candles from the Binance exchange"""
 
     def __init__(self, url_stream: str = URL_STREAM) -> None:
@@ -78,6 +80,7 @@ class BinanceStreamAdapter(StreamPort):
             raise
     
 
+    @timed_async
     async def get_live_candle(self, symbol: Symbol, interval: Interval) -> Candle:
         """Get live candle from the Binance stream"""
 

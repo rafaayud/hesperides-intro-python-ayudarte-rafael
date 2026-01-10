@@ -1,6 +1,7 @@
 from .base import Strategy
 from ..value_objects import Signal, Price
-from typing import List, Tuple
+from ..utils import timed
+from typing import List
 from ..entities import Candle
 
 
@@ -9,12 +10,11 @@ class MeanCross(Strategy):
     
     def __init__(self, slow_period: int=50, fast_period: int=10) -> None:
         super().__init__(name=f"MA Cross ({fast_period}/{slow_period})", min_candles=slow_period+1)
-
         self._slow_period = slow_period
         self._fast_period = fast_period
 
+    @timed
     def generate_signal(self, candles: List[Candle]) -> Signal:
-        
         if len(candles) < self._min_candles:
             return Signal.HOLD
         

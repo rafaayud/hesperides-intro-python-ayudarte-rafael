@@ -35,7 +35,7 @@ class StreamPort(ABC):
         """Disconnect from the exchange"""
     
     @abstractmethod
-    async def get_live_candle(self, symbol: Symbol ) -> Candle:
+    async def get_live_candle(self, symbol: Symbol, interval: Interval) -> Candle:
         """Get the live candle from the exchange"""
 
     @abstractmethod

@@ -3,6 +3,7 @@ import asyncio
 from ..domain.ports import ExchangePort
 from ..domain.value_objects import Symbol, Interval, Timestamp, Price, Quantity, Candle_static
 from ..domain.entities import Candle
+from ..domain.utils import AdapterMeta, timed_async
 from decimal import Decimal
 from typing import AsyncIterator
 from datetime import datetime
@@ -13,7 +14,8 @@ from .exceptions import RateLimitError, IPBannedError
 BINANCE_REST_URL = "https://api.binance.com"
 CANDLES_LIMIT = 10000
 
-class BinanceAdapter(ExchangePort):
+
+class BinanceAdapter(ExchangePort, metaclass=AdapterMeta):
     """Adapter for the Binance exchange"""
 
     def __init__(self, rest_url: str = BINANCE_REST_URL, rate_limit_delay: float = 0.1) -> None:
@@ -89,7 +91,8 @@ class BinanceAdapter(ExchangePort):
             raise
 
 
-    async def get_historical_candles(self, symbol: Symbol,  interval: Interval, limit: int) -> list[Candle_static]:
+    @timed_async
+    async def get_historical_candles(self, symbol: Symbol, interval: Interval, limit: int) -> list[Candle_static]:
         """Get historical candles from the Binance exchange"""
 
 
@@ -131,6 +134,7 @@ class BinanceAdapter(ExchangePort):
 
         return all_candles
     
+    @timed_async
     async def get_candles_since(self, symbol: Symbol, interval: Interval, start_time: Timestamp) -> list[Candle_static]:
         """Get candles from start_time until now."""
 

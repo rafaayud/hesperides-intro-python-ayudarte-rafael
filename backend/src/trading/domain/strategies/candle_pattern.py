@@ -1,9 +1,9 @@
 from .base import Strategy, CandlestickPattern
 from ..value_objects import Signal
+from ..utils import timed
 from typing import List
 from ..entities import Candle
 from .patterns import patterns_list
-
 
 
 class CandlePatternStrategy(Strategy):
@@ -22,6 +22,7 @@ class CandlePatternStrategy(Strategy):
             min_candles=max_candles
         )
     
+    @timed
     def generate_signal(self, candles: list[Candle]) -> Signal:
         if len(candles) < self._min_candles:
             return Signal.HOLD

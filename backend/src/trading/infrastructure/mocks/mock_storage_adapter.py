@@ -1,9 +1,9 @@
 from ...domain.value_objects import Symbol, Interval, Timestamp, Candle_static, Price, Quantity
-from ...domain.ports import storagePort
+from ...domain.ports import StoragePort
+from ...domain.utils import AdapterMeta, timed_async
 
 
-
-class MockStorageAdapter(storagePort):
+class MockStorageAdapter(StoragePort, metaclass=AdapterMeta):
     """Mock storage adapter"""
 
     async def connect(self) -> None:

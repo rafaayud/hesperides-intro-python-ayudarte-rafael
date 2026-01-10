@@ -1,6 +1,7 @@
 from ...domain.entities import Candle
 from ...domain.value_objects import Symbol, Interval, Candle_static, Timestamp
 from ...domain.ports import StoragePort, ExchangePort, StreamPort
+from ...domain.utils import timed_async
 from typing import Optional, AsyncIterator
 import logging
 import asyncio
@@ -73,6 +74,7 @@ class DataIngestionService:
             self._logger.error(f"Error disconnecting from exchange and storage: {e}")
             raise
 
+    @timed_async
     async def ingest_historical_data(self, symbol: Symbol, interval: Interval) -> list[Candle_static]:
         """Ingest historical data from the exchange"""
         if not self._connected:

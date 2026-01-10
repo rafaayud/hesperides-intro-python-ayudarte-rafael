@@ -1,20 +1,22 @@
 from ...domain.ports import StreamPort
 from ...domain.value_objects import Symbol, Interval, Timestamp, Price, Quantity, Candle_static
 from ...domain.entities import Candle
+from ...domain.utils import AdapterMeta, timed_async
 from typing import AsyncIterator
 from decimal import Decimal
 import asyncio
 from datetime import datetime
 import random
 
-class MockStreamAdapter(StreamPort):
+
+class MockStreamAdapter(StreamPort, metaclass=AdapterMeta):
     """Mock stream adapter"""
     def __init__(self, base_price: float = 100.0, delay: float = 1.0) -> None:
         self._base_price = base_price
         self._delay = delay
         self._running = False
     
-    async def get_live_candle(self, symbol: Symbol) -> Candle:
+    async def get_live_candle(self, symbol: Symbol, interval: Interval) -> Candle:
         pass
 
 
