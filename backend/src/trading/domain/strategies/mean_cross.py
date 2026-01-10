@@ -1,7 +1,7 @@
-from trading.domain.strategies.base import Strategy
-from trading.domain.value_objects import Signal, Price
+from .base import Strategy
+from ..value_objects import Signal, Price
 from typing import List, Tuple
-from trading.domain.entities import Candle
+from ..entities import Candle
 
 
 class MeanCross(Strategy):

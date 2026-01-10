@@ -1,5 +1,5 @@
-from trading.domain.ports import ExchangePort
-from trading.domain.value_objects import Symbol, Interval, Timestamp, Candle_static, Price, Quantity
+from ...domain.ports import ExchangePort
+from ...domain.value_objects import Symbol, Interval, Timestamp, Candle_static, Price, Quantity
 from decimal import Decimal
 from datetime import datetime
 import random

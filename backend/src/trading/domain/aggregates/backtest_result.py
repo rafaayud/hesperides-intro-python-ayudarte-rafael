@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from decimal import Decimal
-from trading.domain.value_objects import Symbol, Interval, PnL
-from trading.domain.entities import Trade
+from ..value_objects import Symbol, Interval, PnL
+from ..entities import Trade
 
 
 

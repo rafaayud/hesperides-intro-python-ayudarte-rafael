@@ -1,8 +1,8 @@
 import aiohttp
 import asyncio
-from trading.domain.ports import ExchangePort
-from trading.domain.value_objects import Symbol, Interval, Timestamp, Price, Quantity, Candle_static
-from trading.domain.entities import Candle
+from ..domain.ports import ExchangePort
+from ..domain.value_objects import Symbol, Interval, Timestamp, Price, Quantity, Candle_static
+from ..domain.entities import Candle
 from decimal import Decimal
 from typing import AsyncIterator
 from datetime import datetime

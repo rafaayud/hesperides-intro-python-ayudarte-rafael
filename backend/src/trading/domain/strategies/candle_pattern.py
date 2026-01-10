@@ -1,9 +1,8 @@
-from trading.domain.strategies.base import Strategy
-from trading.domain.value_objects import Signal
+from .base import Strategy, CandlestickPattern
+from ..value_objects import Signal
 from typing import List
-from trading.domain.entities import Candle
-from trading.domain.strategies.base import CandlestickPattern
-from trading.domain.strategies.patterns import patterns_list
+from ..entities import Candle
+from .patterns import patterns_list
 
 
 

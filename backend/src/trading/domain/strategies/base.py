@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
-from trading.domain.entities import Candle
-from trading.domain.value_objects import Symbol, Interval, Signal
+from ..entities import Candle
+from ..value_objects import Symbol, Interval, Signal
 from typing import List
 #from asyncio import AsyncIterator
 

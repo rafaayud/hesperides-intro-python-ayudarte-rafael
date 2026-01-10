@@ -77,7 +77,7 @@ class orderPort(ABC):
     """Port for the order execution"""
 
     @abstractmethod
-    async def send_order(self, order: Order) -> None:
+    async def send_order(self, order: Order) -> dict:
         """Execute an order"""
 
     @abstractmethod

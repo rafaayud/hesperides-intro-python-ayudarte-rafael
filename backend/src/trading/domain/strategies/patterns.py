@@ -1,7 +1,7 @@
-from trading.domain.strategies.base import CandlestickPattern
-from trading.domain.value_objects import Signal
+from .base import CandlestickPattern
+from ..value_objects import Signal
 from typing import List
-from trading.domain.entities import Candle
+from ..entities import Candle
 
 
 class Hammer(CandlestickPattern):

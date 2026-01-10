@@ -1,6 +1,6 @@
-from trading.domain.ports import StreamPort
-from trading.domain.value_objects import Symbol, Interval, Price, Quantity, Timestamp, Candle_static
-from trading.domain.entities import Candle
+from ..domain.ports import StreamPort
+from ..domain.value_objects import Symbol, Interval, Price, Quantity, Timestamp, Candle_static
+from ..domain.entities import Candle
 import asyncio
 import aiohttp
 import logging

@@ -1,7 +1,6 @@
-from trading.domain.entities import Candle
-from trading.domain.value_objects import Symbol, Interval
-from trading.domain.strategies.base import Strategy
-from trading.domain.value_objects import Signal
+from ..entities import Candle
+from ..value_objects import Symbol, Interval, Signal
+from .base import Strategy
 
 class Momentum(Strategy):
     """Momentum Strategy: Buy if the price is going up, with a reference period a few candles ago. We take the
