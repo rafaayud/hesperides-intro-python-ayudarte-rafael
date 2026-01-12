@@ -1,15 +1,14 @@
 from .base import Strategy, CandlestickPattern
-from ..value_objects import Signal
+from ..value_objects import Signal, Candle_static
 from ..utils import timed
 from typing import List
-from ..entities import Candle
 from .patterns import patterns_list
 
 
 class CandlePatternStrategy(Strategy):
     """Strategy that detects candlestick patterns"""
     
-    def __init__(self, patterns: list[CandlestickPattern] | None = None) -> None:
+    def __init__(self, patterns: List[CandlestickPattern] | None = None) -> None:
         """Initialize the CandlePatternStrategy with the default patterns"""
         if patterns is None:
             patterns = patterns_list
@@ -23,7 +22,7 @@ class CandlePatternStrategy(Strategy):
         )
     
     @timed
-    def generate_signal(self, candles: list[Candle]) -> Signal:
+    def generate_signal(self, candles: List[Candle_static]) -> Signal:
         if len(candles) < self._min_candles:
             return Signal.HOLD
         

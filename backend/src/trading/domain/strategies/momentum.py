@@ -1,7 +1,7 @@
-from ..entities import Candle
-from ..value_objects import Symbol, Interval, Signal
+from ..value_objects import Signal, Candle_static
 from ..utils import timed
 from .base import Strategy
+from typing import List
 
 
 class Momentum(Strategy):
@@ -14,7 +14,7 @@ class Momentum(Strategy):
         self._threshold = threshold
 
     @timed
-    def generate_signal(self, candles: list[Candle]) -> Signal:
+    def generate_signal(self, candles: List[Candle_static]) -> Signal:
         if len(candles) < self._min_candles:
             return Signal.HOLD
         

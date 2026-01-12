@@ -137,14 +137,12 @@ class BinanceStreamAdapter(StreamPort, metaclass=AdapterMeta):
             interval=interval
         )
         
+        # symbol, interval, open_time se obtienen de ohlcv (sin duplicación)
         return Candle(
-            symbol=symbol,
-            interval=interval,
-            open_time=Timestamp(datetime.fromtimestamp(k["t"] / 1000)),
-            close_time=Timestamp(datetime.fromtimestamp(k["T"] / 1000)),
             ohlcv=ohlcv,
-            ingestion_time=Timestamp(datetime.now()),
+            close_time=Timestamp(datetime.fromtimestamp(k["T"] / 1000)),
             event_time=Timestamp(datetime.fromtimestamp(data["E"] / 1000)),
+            ingestion_time=Timestamp(datetime.now()),
             trades_count=k["n"],
             is_closed=k["x"]
         )

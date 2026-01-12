@@ -87,7 +87,21 @@ class Interval(Enum):
     D1 = "1d"
     W1 = "1w"
     MO1 = "1M"
-    
+
+    @property
+    def seconds(self) -> int:
+        """Seconds for a given interval"""
+        dict_map ={
+            Interval.M1: 60,
+            Interval.M5: 300,
+            Interval.M15: 900,
+            Interval.H1: 3600,
+            Interval.H4: 14400,
+            Interval.D1: 86400,
+            Interval.W1: 604800,
+            Interval.MO1: 2592000,
+        }
+        return dict_map.get(self, 60)
 
     @property
     def max_candles(self) -> int:
@@ -155,6 +169,42 @@ class Quantity():
 class Timestamp():
     """A timestamp value object."""
     timestamp: datetime
+
+    def __str__(self) -> str:
+        return f"{self.timestamp:%Y-%m-%d %H:%M:%S}"
+    
+    def __repr__(self) -> str:
+        return f"Timestamp({self.timestamp:%Y-%m-%d %H:%M:%S})"
+    
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, Timestamp):
+            return self.timestamp == other.timestamp
+        return NotImplemented
+    
+    def __lt__(self, other: "Timestamp") -> bool:
+        return self.timestamp < other.timestamp
+    
+    def __le__(self, other: "Timestamp") -> bool:
+        return self.timestamp <= other.timestamp
+    
+    def __gt__(self, other: "Timestamp") -> bool:
+        return self.timestamp > other.timestamp
+    
+    def __ge__(self, other: "Timestamp") -> bool:
+        return self.timestamp >= other.timestamp
+    
+    def __add__(self, other: "Timestamp") -> "Timestamp":
+        return Timestamp(self.timestamp + other.timestamp)
+    
+    def __sub__(self, other: "Timestamp") -> "Timestamp":
+        return Timestamp(self.timestamp - other.timestamp)
+    
+    def __mul__(self, other: int | float) -> "Timestamp":
+        return Timestamp(self.timestamp * other)
+    
+    def __truediv__(self, other: int | float) -> "Timestamp":
+        return Timestamp(self.timestamp / other)
+    
     
 @dataclass(frozen=True, slots=True)
 class Candle_static:
@@ -242,6 +292,23 @@ class Side(Enum):
     def opposite(self) -> "Side":
         return Side.SELL if self == Side.BUY else Side.BUY
 
+class OrderType(Enum):
+    """Type of an order."""
+    MARKET = "MARKET"
+    LIMIT = "LIMIT"
+    STOP_LOSS = "STOP_LOSS"
+    STOP_LOSS_LIMIT = "STOP_LOSS_LIMIT"
+    TAKE_PROFIT = "TAKE_PROFIT"
+    TAKE_PROFIT_LIMIT = "TAKE_PROFIT_LIMIT"
+    LIMIT_MAKER = "LIMIT_MAKER"
+
+class OrderStatus(Enum):
+    """Status of an order."""
+    PENDING = "PENDING"
+
+
+
+
 
 @dataclass(frozen=True, slots=True)
 class PnL:
@@ -299,7 +366,12 @@ class PnL:
         """Returns True if PnL is negative (loss)"""
         return self.value < 0
 
+class ExecutionMode(Enum):
+    """When to execute the strategy."""
+    ON_CLOSE = "ON_CLOSE"  # Only when candle closes (recommended)
+    ON_TICK = "ON_TICK"  # On every tick (fast, noisy)
+
 __all__ = [
     "Symbol", "Price", "Quantity", "Timestamp", "Candle_static", "Interval", 
-    "TradeStatus", "Signal", "Side", "PnL"
+    "TradeStatus", "Signal", "Side", "PnL", "OrderType", "ExecutionMode"
 ]

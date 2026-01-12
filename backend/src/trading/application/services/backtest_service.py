@@ -1,21 +1,19 @@
 from ...domain.value_objects import Symbol, Interval, Candle_static, Signal, Side, Quantity, TradeStatus
-from ...domain.entities import Candle, Position, Trade
+from ...domain.entities import Position, Trade
 from ...domain.aggregates.backtest_result import BacktestResult
 from ...domain.strategies.base import Strategy
 from ...domain.ports import StoragePort
-import asyncio
-from datetime import datetime
 import logging
 from decimal import Decimal
 
 
 class BacktestService:
-    """Service for backtesting strategies, we take all the candles for a given symbol and timeframe and test the strategy."""
+    """Service for backtesting strategies with historical Candle_static data."""
 
     def __init__(self, storage: StoragePort) -> None:
         self._storage = storage
         self._logger = logging.getLogger(__name__)
-        self._logger.setLevel(logging.INFO)  # Changed to DEBUG to see debug logs
+        self._logger.setLevel(logging.INFO)
 
     async def connect(self) -> None:
         await self._storage.connect()
@@ -27,23 +25,28 @@ class BacktestService:
 
     async def get_candles(self, symbol: Symbol, interval: Interval) -> list[Candle_static]:
         """Get all the candles for a given symbol and timeframe"""
-
         if not self._storage:
             raise ValueError("Storage not connected")
 
         limit = interval.max_candles
-
         candles = await self._storage.get_candles(symbol, interval, limit)
         return candles
 
-    def test_strategy(self, strategy: Strategy, candles: list[Candle_static], initial_capital: float) -> None:
-        """Test a strategy with a list of candles"""
-
-        candles = [Candle.from_static(c) for c in candles]
-
-        window = []
-        position = None
-        trades = []
+    def test_strategy(self, strategy: Strategy, candles: list[Candle_static], initial_capital: float) -> BacktestResult:
+        """
+        Test a strategy with historical candles.
+        
+        Args:
+            strategy: Strategy to test
+            candles: List of Candle_static (OHLCV data)
+            initial_capital: Starting capital
+            
+        Returns:
+            BacktestResult with trades and final capital
+        """
+        window: list[Candle_static] = []
+        position: Position | None = None
+        trades: list[Trade] = []
         capital = Decimal(initial_capital)
 
         for candle in candles:
@@ -55,8 +58,7 @@ class BacktestService:
             signal = strategy.generate_signal(window)
             self._logger.debug(f"Signal: {signal} at candle {len(window)}")
 
-
-            #We start our position buying
+            # Open position on BUY signal
             if signal == Signal.BUY and position is None:
                 quantity = capital / candle.close.value
                 position = Position(
@@ -64,28 +66,35 @@ class BacktestService:
                     side=Side.BUY,
                     entry_price=candle.close,
                     quantity=Quantity(quantity),
-                    entry_time=candle.event_time,
+                    entry_time=candle.timestamp,  # Candle_static usa .timestamp
                     target_quantity=Quantity(quantity),
                     status=TradeStatus.EXECUTED,
                 )
-                self._logger.info(f" BUY Position opened: {position.symbol} @ ${position.entry_price.value:.2f}, qty: {position.quantity.value:.4f}")
+                self._logger.info(
+                    f" BUY Position opened: {position.symbol} @ ${position.entry_price.value:.2f}, "
+                    f"qty: {position.quantity.value:.4f}"
+                )
     
-            #We close our position selling
+            # Close position on SELL signal
             elif signal == Signal.SELL and position is not None:
-                trade = position.close(candle.close, candle.event_time)
+                trade = position.close(candle.close, candle.timestamp)
                 trades.append(trade)
                 capital += trade.pnl.value
                 pnl_str = f"+${trade.pnl.value:.2f}" if trade.pnl.value >= 0 else f"${trade.pnl.value:.2f}"
-                self._logger.info(f" SELL Position closed: {trade.symbol} @ ${trade.exit_price.value:.2f}, PnL: {pnl_str}, Capital: ${capital:.2f}")
+                self._logger.info(
+                    f" SELL Position closed: {trade.symbol} @ ${trade.exit_price.value:.2f}, "
+                    f"PnL: {pnl_str}, Capital: ${capital:.2f}"
+                )
                 position = None
-        #We close our position at the end of the backtest
+
+        # Close any open position at the end
         if position is not None:
-            last_candle = candles[-1]  # candles is already a list of Candle, not Candle_static
-            trade = position.close(last_candle.close, last_candle.event_time)
+            last_candle = candles[-1]
+            trade = position.close(last_candle.close, last_candle.timestamp)
             trades.append(trade)
             capital += trade.pnl.value
             pnl_str = f"+${trade.pnl.value:.2f}" if trade.pnl.value >= 0 else f"${trade.pnl.value:.2f}"
-            
+            self._logger.info(f" Final position closed: PnL: {pnl_str}")
         
         self._logger.info(f" Backtest completed: {len(trades)} trades, Final capital: ${float(capital):.2f}")
             

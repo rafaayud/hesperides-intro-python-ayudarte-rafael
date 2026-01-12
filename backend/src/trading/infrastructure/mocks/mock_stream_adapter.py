@@ -42,10 +42,13 @@ class MockStreamAdapter(StreamPort, metaclass=AdapterMeta):
             yield candle
             await asyncio.sleep(self._delay)
     
-    async def connect(self) -> None:
-        pass
+    async def connect(self) -> "StreamPort":
+        """Connect to the stream."""
+        self._running = True
+        return self
     
     async def disconnect(self) -> None:
+        """Disconnect from the stream."""
         self._running = False
 
 if __name__ == "__main__":
