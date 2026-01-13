@@ -7,7 +7,7 @@ import logging
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 
-class PostgreAdapter(StoragePort, metaclass=AdapterMeta):
+class PostgresAdapter(StoragePort, metaclass=AdapterMeta):
     """Adapter for the Postgres database"""
 
     def __init__(self, db_url: str) -> None:

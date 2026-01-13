@@ -135,7 +135,24 @@ class Candle:
             volume=self.ohlcv.volume,
             timestamp=self.ohlcv.timestamp,
         )
-
+    @property
+    def to_dict(self) -> dict:
+        """Convert Candle to a JSON-serializable dictionary."""
+        return {
+            "symbol": self.ohlcv.symbol.symbol,
+            "interval": self.ohlcv.interval.value,
+            "open_time": self.ohlcv.timestamp.timestamp.isoformat(),
+            "open": str(self.ohlcv.open.value),
+            "high": str(self.ohlcv.high.value),
+            "low": str(self.ohlcv.low.value),
+            "close": str(self.ohlcv.close.value),
+            "volume": str(self.ohlcv.volume.value),
+            "close_time": self.close_time.timestamp.isoformat(),
+            "event_time": self.event_time.timestamp.isoformat(),
+            "ingestion_time": self.ingestion_time.timestamp.isoformat(),
+            "trades_count": self.trades_count,
+            "is_closed": self.is_closed,
+        }
 
     # === Properties que delegan a ohlcv (sin duplicación) ===
     

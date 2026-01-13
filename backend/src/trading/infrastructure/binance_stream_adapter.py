@@ -65,7 +65,7 @@ class BinanceStreamAdapter(StreamPort, metaclass=AdapterMeta):
         url = f"{self.url_stream}/{stream}"
 
         try:
-            self._ws = await self._session.ws_connect(url, heartbeat=30, timeout=aiohttp.ClientTimeout(total=30))
+            self._ws = await self._session.ws_connect(url, heartbeat=30, timeout=aiohttp.ClientTimeout(total=30.0))
             self.running = True
             logging.info(f"Subscribed to {stream}")
         
