@@ -53,6 +53,8 @@ class Portfolio:
         self._capital_for_trader = self.initial_capital / _num_traders 
 
         self._current_capital = {trader.id: PnL(self._capital_for_trader) for trader in self.traders}
+
+        self._trades = {trader.id: [] for trader in self.traders}
         
         logger.info(f"Portfolio created with capital: {self.initial_capital} and {_num_traders} traders")
 
@@ -64,27 +66,7 @@ class Portfolio:
     # Position Management
     # ==================
 
-    def has_position(self, trader_id: str) -> bool:
-        """Check if a trader has an open position."""
-        return trader_id in self._positions
-
-    def get_position(self, trader_id: str) -> Optional[Position]:
-        """Get the position of a trader (None if none)."""
-        return self._positions.get(trader_id)
-
-    def can_open_position(self, trader_id: str, cost: Decimal) -> bool:
-        """
-        Check if a trader can open a position.
-        
-        Invariants verified:
-        - The trader doesn't have an open position
-        - There is enough available capital
-        """
-        if self.has_position(trader_id):
-            return False
-        if cost > self._available_capital:
-            return False
-        return True
+    
 
     def open_position(self, trader_id: str, position: Position) -> None:
         """
@@ -100,7 +82,7 @@ class Portfolio:
 
         
         self._positions[trader_id] = position
-        self._current_capital[trader_id] = Decimal("0")
+        self._current_capital[trader_id] = PnL(Decimal("0"))
         logger.info(
             f"Position opened for {trader_id}: {position.symbol} "
             f"{position.side.value} @ {position.entry_price}"
@@ -112,7 +94,7 @@ class Portfolio:
         
         Args:
             trader_id: ID of the trader
-            trade: The trade resulting from closing the position
+            response: The response from the order execution
             
         Raises:
             ValueError: If the trader doesn't have an open position
@@ -120,15 +102,18 @@ class Portfolio:
         # Invariant 4: cannot close position that doesn't exist
         if not self.has_position(trader_id):
             raise ValueError(f"Trader {trader_id} has no position to close")
+
         trade = self.get_position(trader_id).close(response.price, response.timestamp)
+        self._positions[trader_id] = None
+
 
         # Return capital + PnL
         
-        self._current_capital[trader_id] += trade.pnl
+        self._current_capital[trader_id] += PnL(trade.exit_price.value * trade.quantity.value)
         
         # Record trade
-        trade_key = f"{trader_id}_{len(self._trades)}"
-        self._trades[trade_key].append(trade)
+       
+        self._trades[trader_id].append(trade)
         
         # Remove position
         self._positions[trader_id] = None
@@ -146,10 +131,27 @@ class Portfolio:
         """All completed trades (read-only)."""
         return self._trades[trader_id].copy()
 
-    @property
-    def positions(self, trader_id: str) -> Optional[Position]:
-        """All open positions (read-only)."""
-        return self._positions[trader_id]
+    
+    def has_position(self, trader_id: str) -> bool:
+        """Check if a trader has an open position."""
+        return self._positions.get(trader_id) is not None
+
+    def get_position(self, trader_id: str) -> Optional[Position]:
+        """Get the position of a trader (None if none)."""
+        return self._positions.get(trader_id)
+
+    def can_open_position(self, trader_id: str) -> bool:
+        """
+        Check if a trader can open a position.
+        
+        Invariants verified:
+        - The trader doesn't have an open position
+        - There is enough available capital
+        """
+        if self.has_position(trader_id):
+            return False
+
+        return True
 
     @property
     def total_pnl(self) -> PnL:
@@ -158,7 +160,8 @@ class Portfolio:
             return PnL(Decimal("0"))
 
         total = Decimal("0")
-        for trader_id in self.traders.id:
+        for trader in self.traders:
+            trader_id = trader.id
             for trade in self._trades[trader_id]:
                 total += trade.pnl.value
         return PnL(total)
@@ -178,8 +181,50 @@ class Portfolio:
         return len(self._trades[trader_id])
 
     def __repr__(self) -> str:
+        """Debugging representation."""
         return (
-            f"<Portfolio capital={self.total_pnl.value:.2f}/{self.initial_capital:.2f} "
-            f"positions={self.num_open_positions} trades={self.num_completed_trades} "
-            f"PnL={self.total_pnl}>"
+            f"<Portfolio initial={self.initial_capital:.2f} "
+            f"positions={self.num_open_positions} "
+            f"traders={len(self.traders)} "
+            f"PnL={self.total_pnl.value:+.2f}>"
         )
+    
+    def __str__(self) -> str:
+        """Human-readable representation with per-trader breakdown."""
+        total_trades = sum(len(trades) for trades in self._trades.values())
+        pnl_pct = (self.total_pnl.value / self.initial_capital) * 100 if self.initial_capital > 0 else 0
+        
+        lines = [
+            f"Portfolio Summary",
+            f"  Initial Capital: ${self.initial_capital:,.2f}",
+            f"  Total PnL:       ${self.total_pnl.value:+,.2f} ({pnl_pct:+.2f}%)",
+            f"  Open Positions:  {self.num_open_positions}",
+            f"  Total Trades:    {total_trades}",
+            f""
+        ]
+        
+        for trader in self.traders:
+            trader_trades = self._trades[trader.id]
+            trader_pnl = sum(trade.pnl.value for trade in trader_trades)
+            position_status = "OPEN" if self.has_position(trader.id) else "CLOSED"
+            
+            lines.append(
+                f"[{trader.id}] {len(trader_trades)} trades | "
+                f"PnL=${trader_pnl:+,.2f} | position={position_status}"
+            )
+            
+            # Lista de trades del trader
+            if trader_trades:
+                for i, trade in enumerate(trader_trades, 1):
+                    pnl_sign = "+" if trade.pnl.value >= 0 else ""
+                    lines.append(
+                        f"  {i}. {trade.symbol} | "
+                        f"Entry=${trade.entry_price.value:.2f} Exit=${trade.exit_price.value:.2f} | "
+                        f"PnL={pnl_sign}${trade.pnl.value:.2f} ({trade.pnl_percentage:+.2f}%)"
+                    )
+            else:
+                lines.append(f"  (no trades yet)")
+            
+            lines.append("")  # Línea en blanco entre traders
+        
+        return "\n".join(lines)

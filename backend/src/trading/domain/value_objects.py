@@ -353,9 +353,6 @@ class PnL:
     def __mul__(self, other: Decimal | int | float) -> "PnL":
         return PnL(self.value * Decimal(str(other)))
     
-    def __truediv__(self, other: Decimal | int | float) -> "PnL":
-        return PnL(self.value / Decimal(str(other)))
-    
     @property
     def is_positive(self) -> bool:
         """Returns True if PnL is positive (profit)"""

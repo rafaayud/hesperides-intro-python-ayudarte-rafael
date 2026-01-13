@@ -47,6 +47,8 @@ class TradingEngine:
         # Index traders by (symbol, interval) for O(1) lookup when candle arrives
         self._traders = self._portfolio.traders
         self._traders_by_pair: Dict[Tuple[Symbol, Interval], List[Trader]] = {}
+
+        # Index traders by (symbol, interval) so we do not ask to open more streams than necessary
         for trader in self._traders:
             key = (trader.symbol, trader.interval)
             if key not in self._traders_by_pair:
@@ -227,8 +229,8 @@ class TradingEngine:
                 logger.info(f"Position opened: {order.trader_id} @ {response.price}")
                 
             elif order.side == Side.SELL:
-                
-                self._portfolio.close_position(order.trader_id, response.price)
+
+                self._portfolio.close_position(order.trader_id, response)
                 logger.info(f"Position closed: {order.trader_id} @ {response.price}")
 
     # ==================== Helpers ====================
