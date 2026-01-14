@@ -19,7 +19,7 @@ from src.trading.domain.entities import Candle
 
 CANDLES = 20
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,
     format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[logging.StreamHandler(sys.stdout)] # Fuerza la salida estándar
 )
@@ -138,23 +138,21 @@ async def test_trading_with_adapters() -> None:
     binance_order_adapter = BinanceOrderAdapter()
     binance_stream_adapter = BinanceStreamAdapter()
     mock_stream = MockStreamAdapter()
-    portfolio = Portfolio(initial_capital=Decimal("100000"), traders=[trader_3, trader_1])
+    portfolio = Portfolio(initial_capital=Decimal("100000"), traders=[trader_3])
     trading_engine = TradingEngine(exchange=binance_adapter, stream=binance_stream_adapter, order=binance_order_adapter, portfolio=portfolio)
     
     async with trading_engine as engine:
-        await engine.startup()
-        logger.info("Traders loaded with candles")
-        await engine.run()
-        logger.info("Trading engine running")
-        await asyncio.sleep(30)
-        await engine.stop()
-        logger.info("Trading engine stopped")
-        print(f"portfolio: {portfolio}")
+        try:
+            await asyncio.wait_for(engine.run(), timeout=30)
+        except asyncio.TimeoutError:
+            logger.info("Trading engine stopped after 30 seconds")
+        finally:
+            await engine.stop()
+            logger.info("Trading engine stopped")
+            print(f"portfolio: {portfolio}")
 
 
 if __name__ == "__main__":
-
-
     asyncio.run(test_trading_with_adapters())
     
 

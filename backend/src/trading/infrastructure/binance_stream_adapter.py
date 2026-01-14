@@ -156,7 +156,7 @@ class BinanceStreamAdapter(StreamPort, metaclass=AdapterMeta):
             while self.running:
                 try:
                     candle = await self.get_live_candle(symbol, interval)
-                    logging.info(f"Candle received: {candle}")
+                    # logging.debug(f"Candle received: {candle}")
                     yield candle
 
                 except ValueError as e:

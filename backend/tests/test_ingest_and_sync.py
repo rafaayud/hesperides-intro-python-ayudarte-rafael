@@ -1,7 +1,7 @@
 from src.trading.application.services.ingestion_service import DataIngestionService
 from src.trading.domain.value_objects import Symbol, Interval
 from src.trading.infrastructure.binance_adapter import BinanceAdapter
-from src.trading.infrastructure.postgre_adapter import PostgreAdapter
+from src.trading.infrastructure.postgre_adapter import PostgresAdapter
 import logging
 import asyncio
 import aiohttp
@@ -18,7 +18,7 @@ URL_DB = "postgresql://postgres:1234@localhost:5432/postgres"
 async def test_ingest_and_sync(symbols: list[Symbol], intervals: list[Interval]) -> None:
     """Test the ingestion and sync service"""
     try:
-        async with DataIngestionService(storage=PostgreAdapter(URL_DB), exchange=BinanceAdapter()) as ingestion_service:
+        async with DataIngestionService(storage=PostgresAdapter(URL_DB), exchange=BinanceAdapter()) as ingestion_service:
             await ingestion_service.sync_all(symbols, intervals, max_concurrent=20)
     except Exception as e:
         logger.error(f"Error ingesting and syncing data: {e}")
@@ -67,8 +67,9 @@ if __name__ == "__main__":
 
     intervals = [m1, m5, m15, h1, h4, d1, w1, mo1]
     all_symbols = asyncio.run(get_all_binance_symbols())
-
-    test_symbols = all_symbols[:300]
+    # print(all_symbols)
+    # print(len(all_symbols))
+    test_symbols = all_symbols
     start_time = time.perf_counter()
     asyncio.run(test_ingest_and_sync(test_symbols, intervals))
     end_time = time.perf_counter()

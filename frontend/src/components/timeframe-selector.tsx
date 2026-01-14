@@ -1,10 +1,10 @@
 "use client"
 
-import { TIMEFRAMES } from "@/lib/trading-data"
+import { TIMEFRAMES, TIMEFRAME_LABELS } from "@/lib/trading-data"
 import { Button } from "@/components/ui/button"
 
 interface TimeframeSelectorProps {
-  value: string
+  value: string      // Aquí llega "H1", "M5", etc.
   onChange: (value: string) => void
 }
 
@@ -16,12 +16,15 @@ export function TimeframeSelector({ value, onChange }: TimeframeSelectorProps) {
           key={tf}
           variant={value === tf ? "default" : "ghost"}
           size="sm"
-          onClick={() => onChange(tf)}
+          onClick={() => onChange(tf)} // Envía "H1" a la API
           className={
-            value === tf ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+            value === tf 
+              ? "bg-primary text-primary-foreground" 
+              : "text-muted-foreground hover:text-foreground"
           }
         >
-          {tf}
+          {/* Aquí mostramos "1h", "5m", etc. en lugar de "H1" o "M5" */}
+          {TIMEFRAME_LABELS[tf]} 
         </Button>
       ))}
     </div>

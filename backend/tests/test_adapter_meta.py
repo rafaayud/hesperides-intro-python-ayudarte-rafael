@@ -42,7 +42,7 @@ def test_adapter_meta_valid_adapter() -> None:
     print("✓ Valid adapter created successfully")
 
 
-def test_adapter_meta_missing_method():
+def test_adapter_meta_missing_method() -> None:
     """Test that missing methods raise TypeError"""
     
     with pytest.raises(TypeError) as exc_info:
@@ -62,7 +62,7 @@ def test_adapter_meta_missing_method():
     print(f"✓ Correctly raised error: {error_message}")
 
 
-def test_adapter_meta_wrong_signature():
+def test_adapter_meta_wrong_signature() -> None:
     """Test that wrong method signatures raise TypeError"""
     
     with pytest.raises(TypeError) as exc_info:
@@ -84,7 +84,7 @@ def test_adapter_meta_wrong_signature():
     print(f"✓ Correctly raised error: {error_message}")
 
 
-def test_real_adapters_are_valid():
+def test_real_adapters_are_valid() -> None:
     """Test that our real adapters pass validation"""
     
     # These imports will fail if adapters don't implement all methods

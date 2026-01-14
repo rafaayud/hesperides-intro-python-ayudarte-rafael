@@ -1,235 +1,225 @@
 "use client"
 
 import { useEffect, useRef } from "react"
-import type { Candle } from "@/lib/trading-data"
-import { calculateSMA, calculateRSI } from "@/lib/trading-data"
+import { 
+  createChart, 
+  ColorType, 
+  ISeriesApi, 
+  UTCTimestamp,
+  CandlestickSeries 
+} from "lightweight-charts"
 
-interface CandlestickChartProps {
-  candles: Candle[]
-  showMA?: boolean
-  showRSI?: boolean
+// 1. Definimos la interfaz para aceptar la función 'onPriceUpdate'
+interface ChartProps {
+  symbol: string
+  interval: string
+  onPriceUpdate?: (price: number) => void
 }
 
-export function CandlestickChart({ candles, showMA = false, showRSI = false }: CandlestickChartProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-  const rsiCanvasRef = useRef<HTMLCanvasElement>(null)
+// Helper para convertir formato de intervalo del frontend al backend
+function convertIntervalToBackendFormat(interval: string): string {
+  const intervalMap: Record<string, string> = {
+    "1m": "M1", "5m": "M5", "15m": "M15",
+    "1h": "H1", "4h": "H4",
+    "1d": "D1", "1w": "W1", "1M": "MO1"
+  };
+  return intervalMap[interval.toLowerCase()] || interval.toUpperCase();
+}
 
+export function TradingViewChart({ symbol, interval, onPriceUpdate }: ChartProps) {
+  const chartContainerRef = useRef<HTMLDivElement>(null)
+  const candleSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null)
+
+  // EFECTO 1: Inicialización del Gráfico y Carga de Histórico
   useEffect(() => {
-    const canvas = canvasRef.current
-    if (!canvas || candles.length === 0) return
+    if (!chartContainerRef.current) return
 
-    const ctx = canvas.getContext("2d")
-    if (!ctx) return
-
-    const dpr = window.devicePixelRatio || 1
-    const rect = canvas.getBoundingClientRect()
-    canvas.width = rect.width * dpr
-    canvas.height = rect.height * dpr
-    ctx.scale(dpr, dpr)
-
-    const width = rect.width
-    const height = rect.height
-    const padding = { top: 20, right: 60, bottom: 30, left: 10 }
-    const chartWidth = width - padding.left - padding.right
-    const chartHeight = height - padding.top - padding.bottom
-
-    // Clear canvas
-    ctx.fillStyle = "#1a1a2e"
-    ctx.fillRect(0, 0, width, height)
-
-    // Calculate price range
-    const prices = candles.flatMap((c) => [c.high, c.low])
-    const minPrice = Math.min(...prices)
-    const maxPrice = Math.max(...prices)
-    const priceRange = maxPrice - minPrice
-    const pricePadding = priceRange * 0.1
-
-    const scaleY = (price: number) =>
-      padding.top + chartHeight - ((price - minPrice + pricePadding) / (priceRange + 2 * pricePadding)) * chartHeight
-
-    const candleWidth = Math.max(2, (chartWidth / candles.length) * 0.8)
-    const gap = chartWidth / candles.length
-
-    // Draw grid lines
-    ctx.strokeStyle = "#2a2a4e"
-    ctx.lineWidth = 1
-    for (let i = 0; i <= 5; i++) {
-      const y = padding.top + (chartHeight / 5) * i
-      ctx.beginPath()
-      ctx.moveTo(padding.left, y)
-      ctx.lineTo(width - padding.right, y)
-      ctx.stroke()
-
-      // Price labels
-      const price = maxPrice + pricePadding - ((priceRange + 2 * pricePadding) / 5) * i
-      ctx.fillStyle = "#6b7280"
-      ctx.font = "11px monospace"
-      ctx.textAlign = "left"
-      ctx.fillText(price.toFixed(2), width - padding.right + 5, y + 4)
-    }
-
-    // Draw candles
-    candles.forEach((candle, i) => {
-      const x = padding.left + i * gap + gap / 2
-      const isGreen = candle.close >= candle.open
-
-      // Wick
-      ctx.strokeStyle = isGreen ? "#22c55e" : "#ef4444"
-      ctx.lineWidth = 1
-      ctx.beginPath()
-      ctx.moveTo(x, scaleY(candle.high))
-      ctx.lineTo(x, scaleY(candle.low))
-      ctx.stroke()
-
-      // Body
-      ctx.fillStyle = isGreen ? "#22c55e" : "#ef4444"
-      const bodyTop = scaleY(Math.max(candle.open, candle.close))
-      const bodyBottom = scaleY(Math.min(candle.open, candle.close))
-      const bodyHeight = Math.max(1, bodyBottom - bodyTop)
-      ctx.fillRect(x - candleWidth / 2, bodyTop, candleWidth, bodyHeight)
+    const chart = createChart(chartContainerRef.current, {
+      layout: { 
+        background: { type: ColorType.Solid, color: "#1a1a2e" }, 
+        textColor: "#d1d5db" 
+      },
+      grid: { 
+        vertLines: { color: "#2a2a4e" }, 
+        horzLines: { color: "#2a2a4e" } 
+      },
+      timeScale: {
+        timeVisible: true,        // muestra HH:MM cuando hay suficiente zoom
+        secondsVisible: false,    // puedes poner true si quieres ver también segundos
+        borderColor: "#2a2a4e",
+      },
+      width: chartContainerRef.current.clientWidth,
+      height: 500,
     })
 
-    // Draw Moving Averages if enabled
-    if (showMA) {
-      const closePrices = candles.map((c) => c.close)
-      const fastMA = calculateSMA(closePrices, 9)
-      const slowMA = calculateSMA(closePrices, 21)
+    const candlestickSeries = chart.addSeries(CandlestickSeries, {
+      upColor: "#22c55e", 
+      downColor: "#ef4444", 
+      borderVisible: false,
+      wickUpColor: "#22c55e", 
+      wickDownColor: "#ef4444",
+    })
+    
+    candleSeriesRef.current = candlestickSeries
 
-      // Fast MA (9)
-      ctx.strokeStyle = "#3b82f6"
-      ctx.lineWidth = 1.5
-      ctx.beginPath()
-      fastMA.forEach((val, i) => {
-        if (val !== null) {
-          const x = padding.left + i * gap + gap / 2
-          const y = scaleY(val)
-          if (i === 0 || fastMA[i - 1] === null) {
-            ctx.moveTo(x, y)
-          } else {
-            ctx.lineTo(x, y)
-          }
+    const fetchHistoricalData = async () => {
+      try {
+        // Convertir formato de intervalo al formato del backend
+        const backendInterval = convertIntervalToBackendFormat(interval);
+        
+        console.log(`[Chart] Syncing ${symbol}/${backendInterval}...`);
+        
+        // Sincronizar Binance -> Postgres
+        const syncResponse = await fetch(`http://localhost:8000/candles/sync`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ symbols: [symbol], intervals: [backendInterval] })
+        });
+
+        if (!syncResponse.ok) {
+          const errorText = await syncResponse.text();
+          throw new Error(`Sync failed: ${syncResponse.status} - ${errorText}`);
         }
-      })
-      ctx.stroke()
 
-      // Slow MA (21)
-      ctx.strokeStyle = "#f59e0b"
-      ctx.lineWidth = 1.5
-      ctx.beginPath()
-      slowMA.forEach((val, i) => {
-        if (val !== null) {
-          const x = padding.left + i * gap + gap / 2
-          const y = scaleY(val)
-          if (i === 0 || slowMA[i - 1] === null) {
-            ctx.moveTo(x, y)
-          } else {
-            ctx.lineTo(x, y)
-          }
+        const syncResult = await syncResponse.json();
+        console.log(`[Chart] Sync completed:`, syncResult);
+    
+        // Leer Postgres -> Frontend
+        console.log(`[Chart] Fetching historical data for ${symbol}/${backendInterval}...`);
+        const response = await fetch(`http://localhost:8000/candles/${symbol}/${backendInterval}?limit=10000`);
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch candles: ${response.status}`);
         }
-      })
-      ctx.stroke()
+        
+        const result = await response.json();
+        console.log(`[Chart] Received ${result.candles?.length || 0} candles`);
 
-      // Legend
-      ctx.fillStyle = "#3b82f6"
-      ctx.fillRect(padding.left + 10, padding.top + 5, 12, 3)
-      ctx.fillStyle = "#9ca3af"
-      ctx.font = "10px sans-serif"
-      ctx.fillText("MA9", padding.left + 26, padding.top + 10)
-
-      ctx.fillStyle = "#f59e0b"
-      ctx.fillRect(padding.left + 60, padding.top + 5, 12, 3)
-      ctx.fillText("MA21", padding.left + 76, padding.top + 10)
-    }
-  }, [candles, showMA])
-
-  // Draw RSI chart
-  useEffect(() => {
-    if (!showRSI) return
-
-    const canvas = rsiCanvasRef.current
-    if (!canvas || candles.length === 0) return
-
-    const ctx = canvas.getContext("2d")
-    if (!ctx) return
-
-    const dpr = window.devicePixelRatio || 1
-    const rect = canvas.getBoundingClientRect()
-    canvas.width = rect.width * dpr
-    canvas.height = rect.height * dpr
-    ctx.scale(dpr, dpr)
-
-    const width = rect.width
-    const height = rect.height
-    const padding = { top: 10, right: 60, bottom: 20, left: 10 }
-    const chartWidth = width - padding.left - padding.right
-    const chartHeight = height - padding.top - padding.bottom
-
-    // Clear canvas
-    ctx.fillStyle = "#1a1a2e"
-    ctx.fillRect(0, 0, width, height)
-
-    const closePrices = candles.map((c) => c.close)
-    const rsiValues = calculateRSI(closePrices, 14)
-    const gap = chartWidth / candles.length
-
-    // Draw overbought/oversold zones
-    ctx.fillStyle = "rgba(239, 68, 68, 0.1)"
-    ctx.fillRect(padding.left, padding.top, chartWidth, (chartHeight / 100) * 30)
-    ctx.fillStyle = "rgba(34, 197, 94, 0.1)"
-    ctx.fillRect(padding.left, padding.top + (chartHeight / 100) * 70, chartWidth, (chartHeight / 100) * 30)
-
-    // Draw threshold lines
-    ctx.strokeStyle = "#ef4444"
-    ctx.lineWidth = 1
-    ctx.setLineDash([4, 4])
-    ctx.beginPath()
-    ctx.moveTo(padding.left, padding.top + (chartHeight / 100) * 30)
-    ctx.lineTo(width - padding.right, padding.top + (chartHeight / 100) * 30)
-    ctx.stroke()
-
-    ctx.strokeStyle = "#22c55e"
-    ctx.beginPath()
-    ctx.moveTo(padding.left, padding.top + (chartHeight / 100) * 70)
-    ctx.lineTo(width - padding.right, padding.top + (chartHeight / 100) * 70)
-    ctx.stroke()
-    ctx.setLineDash([])
-
-    // Draw RSI line
-    ctx.strokeStyle = "#a855f7"
-    ctx.lineWidth = 1.5
-    ctx.beginPath()
-    rsiValues.forEach((val, i) => {
-      if (val !== null) {
-        const x = padding.left + i * gap + gap / 2
-        const y = padding.top + chartHeight - (val / 100) * chartHeight
-        if (i === 0 || rsiValues[i - 1] === null) {
-          ctx.moveTo(x, y)
-        } else {
-          ctx.lineTo(x, y)
+        // Validar que tenemos datos
+        if (!result.candles || !Array.isArray(result.candles)) {
+          console.error("Invalid response format:", result);
+          return;
         }
+
+        // Formatear datos y validar que el tiempo sea válido
+        const formattedData = result.candles
+          .map((c: any) => {
+            // Intentar obtener el timestamp de diferentes campos posibles
+            let timestamp: number | null = null;
+            
+            // Opción 1: timestamp.timestamp (si viene como objeto Timestamp)
+            if (c.timestamp?.timestamp) {
+              timestamp = new Date(c.timestamp.timestamp).getTime() / 1000;
+            }
+            // Opción 2: timestamp (si viene como string ISO)
+            else if (c.timestamp) {
+              timestamp = new Date(c.timestamp).getTime() / 1000;
+            }
+            // Opción 3: open_time (formato ISO string)
+            else if (c.open_time) {
+              timestamp = new Date(c.open_time).getTime() / 1000;
+            }
+            // Opción 4: time (formato ISO string)
+            else if (c.time) {
+              timestamp = new Date(c.time).getTime() / 1000;
+            }
+
+            // Validar que el timestamp sea válido
+            if (!timestamp || isNaN(timestamp)) {
+              console.warn("Invalid timestamp in candle:", c);
+              return null;
+            }
+
+            // Validar que los precios sean números válidos
+            const open = typeof c.open === 'object' && c.open?.value ? parseFloat(c.open.value) : parseFloat(c.open);
+            const high = typeof c.high === 'object' && c.high?.value ? parseFloat(c.high.value) : parseFloat(c.high);
+            const low = typeof c.low === 'object' && c.low?.value ? parseFloat(c.low.value) : parseFloat(c.low);
+            const close = typeof c.close === 'object' && c.close?.value ? parseFloat(c.close.value) : parseFloat(c.close);
+
+            if (isNaN(open) || isNaN(high) || isNaN(low) || isNaN(close)) {
+              console.warn("Invalid price in candle:", c);
+              return null;
+            }
+
+            return {
+              time: timestamp as UTCTimestamp,
+              open,
+              high,
+              low,
+              close,
+            };
+          })
+          .filter((c: any) => c !== null) // Filtrar candles inválidos
+          .sort((a: any, b: any) => a.time - b.time); // Ordenar por tiempo ascendente
+
+        if (formattedData.length === 0) {
+          console.error("No valid candles found after formatting");
+          return;
+        }
+    
+        candlestickSeries.setData(formattedData);
+
+        // Si hay datos históricos, actualizamos el precio inicial en la App
+        if (formattedData.length > 0 && onPriceUpdate) {
+          onPriceUpdate(formattedData[formattedData.length - 1].close);
+        }
+
+      } catch (error) {
+        console.error("Error cargando histórico:", error);
       }
-    })
-    ctx.stroke()
+    };
 
-    // Labels
-    ctx.fillStyle = "#6b7280"
-    ctx.font = "10px monospace"
-    ctx.textAlign = "left"
-    ctx.fillText("70", width - padding.right + 5, padding.top + (chartHeight / 100) * 30 + 4)
-    ctx.fillText("30", width - padding.right + 5, padding.top + (chartHeight / 100) * 70 + 4)
-    ctx.fillText("RSI", padding.left + 5, padding.top + 15)
-  }, [candles, showRSI])
+    fetchHistoricalData()
+
+    const handleResize = () => {
+      if (chartContainerRef.current) {
+        chart.applyOptions({ width: chartContainerRef.current.clientWidth });
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      chart.remove();
+    }
+  }, [symbol, interval]) // No incluimos onPriceUpdate aquí para evitar recargar el histórico innecesariamente
+
+  // EFECTO 2: WebSocket para tiempo real
+  useEffect(() => {
+    const backendInterval = convertIntervalToBackendFormat(interval);
+    const socket = new WebSocket(`ws://localhost:8000/candles_live/${symbol}/${backendInterval}`);
+  
+    socket.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      const c = data.candle;
+  
+      const liveCandle = {
+        time: Math.floor(new Date(c.open_time).getTime() / 1000) as UTCTimestamp, 
+        open: c.open, 
+        high: c.high, 
+        low: c.low, 
+        close: c.close,
+      };
+  
+      if (candleSeriesRef.current) {
+        candleSeriesRef.current.update(liveCandle);
+      }
+
+      // 2. AQUÍ ES DONDE AVISAMOS A LA APP PRINCIPAL DEL NUEVO PRECIO
+      if (onPriceUpdate) {
+        onPriceUpdate(c.close);
+      }
+    };
+  
+    socket.onerror = (err) => console.error("Error WebSocket:", err);
+  
+    return () => socket.close();
+  }, [symbol, interval, onPriceUpdate]); // Aquí sí incluimos onPriceUpdate
 
   return (
-    <div className="flex flex-col gap-2 h-full">
-      <div className={showRSI ? "h-[70%]" : "h-full"}>
-        <canvas ref={canvasRef} className="w-full h-full" />
-      </div>
-      {showRSI && (
-        <div className="h-[30%] border-t border-border">
-          <canvas ref={rsiCanvasRef} className="w-full h-full" />
-        </div>
-      )}
+    <div className="w-full bg-[#1a1a2e] p-4 rounded-lg border border-[#2a2a4e]">
+      <div ref={chartContainerRef} className="w-full" />
     </div>
   )
 }
