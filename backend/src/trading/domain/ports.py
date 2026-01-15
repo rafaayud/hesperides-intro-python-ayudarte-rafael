@@ -1,7 +1,8 @@
 from abc import ABC, abstractmethod
-from typing import AsyncIterator
+from typing import AsyncIterator, Optional, List
 from .value_objects import Symbol, Price, Interval, Candle_static, Timestamp, TradeStatus, Quantity
-from .entities import Candle, Order, OrderResponse
+from .entities import Candle, Order, OrderResponse, Trade, Position, PnL
+from .aggregates import Portfolio, Trader
 
 """The ports are the interfaces that the application uses to interact with the external world. Here we
 define the interfaces for the exchange, the database and the trading engine."""
@@ -150,4 +151,58 @@ class OrderPort(ABC):
             
         Returns:
             OrderResponse with cancellation status
+
         """
+
+
+class PortfolioStoragePort(ABC):
+    """
+    Port to store the information of the portfolios: traders, trades, postions, PnL
+
+    """
+
+    @abstractmethod
+    async def save_portfolio(self, portfolio: Portfolio) -> None:
+        """Save the portfolio to the database"""
+
+    @abstractmethod
+    async def get_portfolio_data(self,portfolio_id: str) -> Optional[dict]:
+        """Get the portfolio from the database"""
+
+    @abstractmethod
+    async def delete_portfolio(self,portfolio_id: str) -> None:
+        """Delete the portfolio and all associated data (traders, positions, trades) from the database"""
+
+    @abstractmethod
+    async def list_portfolios(self) ->List[dict]:
+        """List all the portfolios from the database"""
+    
+    @abstractmethod
+    async def save_position(self,portfolio_id: str,trader_id: str, position: Position) -> None:
+        """Save the position to the database"""
+
+    @abstractmethod
+    async def get_open_positions(self,portfolio_id: str) -> List[dict]:
+        """Get the open position from the database"""
+
+    @abstractmethod
+    async def delete_positions(self, portfolio_id: str, trader_id: str) -> None:
+        """Delete the position of a trader from the database"""
+    
+    @abstractmethod
+    async def get_traders(self, portfolio_id: str) -> List[dict]:
+        """Get the traders from the database"""
+
+    @abstractmethod
+    async def save_trade(self,portfolio_id: str,trader_id: str, trade: Trade) -> None:
+        """Save the trade to the database"""
+
+    @abstractmethod
+    async def get_trades(self,portfolio_id: str, trader_id: Optional[str] = None, limit: int = 100) -> List[Trade]:
+        """Get the trades from the database"""
+
+    @abstractmethod
+    async def get_portfolio_pnl(self, portfolio_id: str) -> Optional[PnL]:
+        """Get the PnL of the portfolio from the database"""
+
+    

@@ -55,14 +55,17 @@ class PostgresAdapter(StoragePort, metaclass=AdapterMeta):
 
         try:
             async with self._pool.acquire() as connection:
-                await connection.executemany(
-                    """
-                INSERT INTO candles (symbol, interval, open_time, open, high, low, close, volume)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-                ON CONFLICT (symbol, interval, open_time) DO NOTHING
-                """,
-                candles_to_insert
-            )
+                async with connection.transaction():
+                    result = await connection.executemany(
+                        """
+                        INSERT INTO candles (symbol, interval, open_time, open, high, low, close, volume)
+                        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                        ON CONFLICT (symbol, interval, open_time) DO NOTHING
+                        """,
+                        candles_to_insert
+                    )
+                    logging.info(f"Candles saved successfully")
+                    return 
         except Exception as e:
             logging.error(f"Error saving candles: {e}")
             
@@ -75,16 +78,18 @@ class PostgresAdapter(StoragePort, metaclass=AdapterMeta):
         
         try:
             async with self._pool.acquire() as connection:
-                result = await connection.fetch(
-                    """
-                    SELECT * FROM candles
-                    WHERE symbol = $1 AND interval = $2
-                    ORDER BY open_time ASC
-                    LIMIT $3
-                    """,
-                    str(symbol), interval.value, limit)
-                logging.info(f"Got {len(result)} {symbol} {interval} candles")
-                return [self._convert_to_candle_static(row) for row in result]
+                async with connection.transaction():
+                    result = await connection.fetch(
+                        """
+                        SELECT * FROM candles
+                        WHERE symbol = $1 AND interval = $2
+                        ORDER BY open_time ASC
+                        LIMIT $3
+                        """,
+                        str(symbol), interval.value, limit
+                    )
+                    logging.info(f"Got {len(result)} {symbol} {interval} candles")
+                    return [self._convert_to_candle_static(row) for row in result]
 
         except Exception as e:
             logging.error(f"Error getting candles: {e}")

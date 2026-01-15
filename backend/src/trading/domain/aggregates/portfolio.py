@@ -30,6 +30,8 @@ class Portfolio:
     Each trader is assigned a fraction of the total capital.
     Positions are tracked by trader_id.
     """
+    id: str
+    name: str
     initial_capital: Decimal
     traders: List[Trader]
     

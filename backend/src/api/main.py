@@ -1,4 +1,3 @@
-# main.py
 from contextlib import asynccontextmanager
 import logging
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends, Query, HTTPException
@@ -35,7 +34,7 @@ app = FastAPI(lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:5173"],  # Más específico
+    allow_origins=["http://localhost:3000", "http://localhost:5173"], 
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -47,7 +46,7 @@ async def get_storage(
     storage: str = Query(default=None, description="Storage backend: postgres"),
     settings: Settings = Depends(get_settings)
 ) -> StoragePort:
-    """Dependency que retorna storage con lifecycle gestionado"""
+    """Dependency that returns storage with lifecycle managed"""
     try:
         storage_name = storage or settings.default_storage
         adapter = AdapterRegistry.get_storage(storage_name, database_url=settings.database_url)
@@ -60,7 +59,7 @@ async def get_storage(
 
 
 def get_service_factory() -> ServiceFactory:
-    """Accede al ServiceFactory desde app.state"""
+    """Access the ServiceFactory from app.state"""
     from fastapi import Request
     def _get(request: Request) -> ServiceFactory:
         return request.app.state.services
@@ -71,7 +70,7 @@ def get_service_factory() -> ServiceFactory:
 class SyncRequest(BaseModel):
     symbols: list[str] = ["BTCUSDT"]
     intervals: list[str] = ["H1"]
-    exchange: str | None = None  # Permite especificar exchange
+    exchange: str | None = None  
 
 
 class CandleResponse(BaseModel):
@@ -134,8 +133,7 @@ async def get_candles(
 @app.put("/candles/sync")
 async def sync_candles(
     request: SyncRequest,
-    settings: Settings = Depends(get_settings)
-) -> dict:
+    settings: Settings = Depends(get_settings)) -> dict:
     """Sincroniza velas desde exchange a storage"""
     services = ServiceFactory(AdapterRegistry, settings)
     

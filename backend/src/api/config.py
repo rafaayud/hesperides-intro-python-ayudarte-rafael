@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     # redis_url: str = "redis://localhost:6379"
     # api_keys, etc.
     
-    class Config:
+    class ConfigDict:
         env_file = ".env"
 
 @lru_cache

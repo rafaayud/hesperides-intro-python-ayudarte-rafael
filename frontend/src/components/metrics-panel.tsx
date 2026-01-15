@@ -1,51 +1,81 @@
 import type React from "react"
 import type { BacktestResult } from "@/lib/trading-data"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { TrendingUp, TrendingDown, Target, Activity, DollarSign, BarChart3 } from "lucide-react"
+import { TrendingUp, TrendingDown, Target, Activity, DollarSign, BarChart3, TrendingUp as TrendingUpIcon, TrendingDown as TrendingDownIcon } from "lucide-react"
 
 interface MetricsPanelProps {
   backtestResult: BacktestResult | null
   currentPrice: number
+  isPriceUp?: boolean
   paperBalance: number
   paperPosition: { amount: number; entryPrice: number } | null
 }
 
-export function MetricsPanel({ backtestResult, currentPrice, paperBalance, paperPosition }: MetricsPanelProps) {
+export function MetricsPanel({ backtestResult, currentPrice, isPriceUp = true, paperBalance, paperPosition }: MetricsPanelProps) {
   const unrealizedPnL = paperPosition
     ? ((currentPrice - paperPosition.entryPrice) / paperPosition.entryPrice) * 100 * paperPosition.amount
     : 0
 
+  const totalPnL = paperPosition
+    ? ((currentPrice - paperPosition.entryPrice) / paperPosition.entryPrice) * 100
+    : 0
+
   return (
     <div className="space-y-4">
+      {/* Current Price Display */}
+      {currentPrice > 0 && (
+        <Card className="bg-card border-border">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Current Price</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className={`text-2xl font-mono font-bold transition-colors ${
+              isPriceUp ? "text-profit" : "text-loss"
+            }`}>
+              ${currentPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Paper Trading Status */}
       <Card className="bg-card border-border">
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">Paper Trading</CardTitle>
+          <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+            <DollarSign className="h-4 w-4" />
+            Paper Trading
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground flex items-center gap-2">
-              <DollarSign className="h-4 w-4" />
-              Balance
-            </span>
-            <span className="font-mono text-lg">${paperBalance.toFixed(2)}</span>
+            <span className="text-sm text-muted-foreground">Balance</span>
+            <span className="font-mono text-lg font-semibold">${paperBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
           </div>
           {paperPosition && (
             <>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Position</span>
-                <span className="font-mono">{paperPosition.amount.toFixed(4)}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Entry Price</span>
-                <span className="font-mono">${paperPosition.entryPrice.toFixed(2)}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Unrealized P&L</span>
-                <span className={`font-mono ${unrealizedPnL >= 0 ? "text-profit" : "text-loss"}`}>
-                  {unrealizedPnL >= 0 ? "+" : ""}
-                  {unrealizedPnL.toFixed(2)}%
-                </span>
+              <div className="pt-2 border-t border-border">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm text-muted-foreground">Position</span>
+                  <span className="font-mono">{paperPosition.amount.toFixed(4)}</span>
+                </div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm text-muted-foreground">Entry Price</span>
+                  <span className="font-mono">${paperPosition.entryPrice.toFixed(2)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Unrealized P&L</span>
+                  <div className={`flex items-center gap-1 font-mono font-semibold ${totalPnL >= 0 ? "text-profit" : "text-loss"}`}>
+                    {totalPnL >= 0 ? (
+                      <TrendingUpIcon className="h-3 w-3" />
+                    ) : (
+                      <TrendingDownIcon className="h-3 w-3" />
+                    )}
+                    <span>
+                      {totalPnL >= 0 ? "+" : ""}
+                      {totalPnL.toFixed(2)}%
+                    </span>
+                  </div>
+                </div>
               </div>
             </>
           )}

@@ -14,7 +14,7 @@ from typing import Dict, List, Set, Tuple
 from decimal import Decimal
 from datetime import datetime
 
-from ...domain.ports import OrderPort, StreamPort, ExchangePort
+from ...domain.ports import OrderPort, StreamPort, ExchangePort, PortfolioStoragePort
 from ...domain.value_objects import Symbol, Interval, Signal, Quantity, Side, TradeStatus, Timestamp, Price
 from ...domain.aggregates import Portfolio, Trader
 from ...domain.entities import Candle, Position, Order, OrderResponse
@@ -38,11 +38,13 @@ class TradingEngine:
         stream: StreamPort,
         order: OrderPort,
         portfolio: Portfolio,
-    ) -> None:
+        portfolio_storage: PortfolioStoragePort) -> None:
+
         self._exchange = exchange
         self._stream = stream
         self._order = order
         self._portfolio = portfolio
+        self._portfolio_storage = portfolio_storage
         
         # Index traders by (symbol, interval) for O(1) lookup when candle arrives
         self._traders = self._portfolio.traders
@@ -248,6 +250,7 @@ class TradingEngine:
         await self._exchange.connect()
         await self._stream.connect()
         await self._order.connect()
+        await self._portfolio_storage.connect()
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
@@ -255,3 +258,4 @@ class TradingEngine:
         await self._stream.disconnect()
         await self._order.disconnect()
         await self._exchange.disconnect()
+        await self._portfolio_storage.disconnect()

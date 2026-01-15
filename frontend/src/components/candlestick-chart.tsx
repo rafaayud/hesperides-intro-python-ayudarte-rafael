@@ -6,14 +6,16 @@ import {
   ColorType, 
   ISeriesApi, 
   UTCTimestamp,
-  CandlestickSeries 
+  CandlestickSeries,
+  HistogramSeries,
+  IChartApi
 } from "lightweight-charts"
 
 // 1. Definimos la interfaz para aceptar la función 'onPriceUpdate'
 interface ChartProps {
   symbol: string
   interval: string
-  onPriceUpdate?: (price: number) => void
+  onPriceUpdate?: (price: number, isUp: boolean) => void
 }
 
 // Helper para convertir formato de intervalo del frontend al backend
@@ -28,7 +30,9 @@ function convertIntervalToBackendFormat(interval: string): string {
 
 export function TradingViewChart({ symbol, interval, onPriceUpdate }: ChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null)
+  const chartRef = useRef<IChartApi | null>(null)
   const candleSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null)
+  const volumeSeriesRef = useRef<ISeriesApi<"Histogram"> | null>(null)
 
   // EFECTO 1: Inicialización del Gráfico y Carga de Histórico
   useEffect(() => {
@@ -52,6 +56,16 @@ export function TradingViewChart({ symbol, interval, onPriceUpdate }: ChartProps
       height: 500,
     })
 
+    chartRef.current = chart
+
+    // Escala principal (velas): dejamos espacio inferior para el volumen
+    chart.priceScale('right').applyOptions({
+      scaleMargins: {
+        top: 0.05,
+        bottom: 0.25,
+      },
+    })
+
     const candlestickSeries = chart.addSeries(CandlestickSeries, {
       upColor: "#22c55e", 
       downColor: "#ef4444", 
@@ -61,6 +75,29 @@ export function TradingViewChart({ symbol, interval, onPriceUpdate }: ChartProps
     })
     
     candleSeriesRef.current = candlestickSeries
+
+    // Añadir serie de volumen
+    const volumeSeries = chart.addSeries(HistogramSeries, {
+      color: "#26a69a",
+      priceFormat: {
+        type: 'volume',
+      },
+      priceScaleId: 'volume',
+      scaleMargins: {
+        top: 0.75,
+        bottom: 0.02,
+      },
+    })
+    
+    volumeSeriesRef.current = volumeSeries
+
+    // Configurar escala de volumen
+    chart.priceScale('volume').applyOptions({
+      scaleMargins: {
+        top: 0.75,
+        bottom: 0.02,
+      },
+    })
 
     const fetchHistoricalData = async () => {
       try {
@@ -141,12 +178,16 @@ export function TradingViewChart({ symbol, interval, onPriceUpdate }: ChartProps
               return null;
             }
 
+            // Obtener volumen
+            const volume = typeof c.volume === 'object' && c.volume?.value ? parseFloat(c.volume.value) : parseFloat(c.volume || 0);
+
             return {
               time: timestamp as UTCTimestamp,
               open,
               high,
               low,
               close,
+              volume: isNaN(volume) ? 0 : volume,
             };
           })
           .filter((c: any) => c !== null) // Filtrar candles inválidos
@@ -157,11 +198,24 @@ export function TradingViewChart({ symbol, interval, onPriceUpdate }: ChartProps
           return;
         }
     
-        candlestickSeries.setData(formattedData);
+        candlestickSeries.setData(formattedData.map(({ volume, ...rest }) => rest));
+
+        // Preparar datos de volumen para la serie de histograma
+        const volumeData = formattedData.map((candle) => ({
+          time: candle.time,
+          value: candle.volume,
+          color: candle.close >= candle.open ? '#22c55e80' : '#ef444480',
+        }));
+
+        if (volumeSeriesRef.current) {
+          volumeSeriesRef.current.setData(volumeData);
+        }
 
         // Si hay datos históricos, actualizamos el precio inicial en la App
         if (formattedData.length > 0 && onPriceUpdate) {
-          onPriceUpdate(formattedData[formattedData.length - 1].close);
+          const lastCandle = formattedData[formattedData.length - 1];
+          const isUp = lastCandle.close >= lastCandle.open;
+          onPriceUpdate(lastCandle.close, isUp);
         }
 
       } catch (error) {
@@ -182,6 +236,9 @@ export function TradingViewChart({ symbol, interval, onPriceUpdate }: ChartProps
     return () => {
       window.removeEventListener('resize', handleResize);
       chart.remove();
+      chartRef.current = null;
+      candleSeriesRef.current = null;
+      volumeSeriesRef.current = null;
     }
   }, [symbol, interval]) // No incluimos onPriceUpdate aquí para evitar recargar el histórico innecesariamente
 
@@ -206,9 +263,20 @@ export function TradingViewChart({ symbol, interval, onPriceUpdate }: ChartProps
         candleSeriesRef.current.update(liveCandle);
       }
 
+      // Actualizar volumen en tiempo real
+      if (volumeSeriesRef.current && c.volume !== undefined) {
+        const volumeUpdate = {
+          time: liveCandle.time,
+          value: c.volume,
+          color: c.close >= c.open ? '#22c55e80' : '#ef444480',
+        };
+        volumeSeriesRef.current.update(volumeUpdate);
+      }
+
       // 2. AQUÍ ES DONDE AVISAMOS A LA APP PRINCIPAL DEL NUEVO PRECIO
       if (onPriceUpdate) {
-        onPriceUpdate(c.close);
+        const isUp = c.close >= c.open;
+        onPriceUpdate(c.close, isUp);
       }
     };
   
