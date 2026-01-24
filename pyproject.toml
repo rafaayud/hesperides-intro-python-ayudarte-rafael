@@ -25,3 +25,4 @@ dependencies = [
 markers = [
     "integration: marks tests as integration tests (deselect with '-m \"not integration\"')",
 ]
+pythonpath = ["server"]

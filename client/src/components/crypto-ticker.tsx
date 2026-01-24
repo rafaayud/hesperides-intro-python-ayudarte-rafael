@@ -125,7 +125,7 @@ export function CryptoTicker() {
       }
 
       // Usamos intervalo M1 para obtener el precio actual más frecuentemente
-      const ws = new WebSocket(`ws://localhost:8000/candles_live/${symbol}/M1`)
+      const ws = new WebSocket(`ws://localhost:8000/live_candles/${symbol}/M1`)
       
       ws.onopen = () => {
         console.log(`[Ticker] WebSocket connected for ${symbol}`)

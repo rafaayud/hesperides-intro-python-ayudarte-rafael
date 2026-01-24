@@ -245,7 +245,7 @@ export function TradingViewChart({ symbol, interval, onPriceUpdate }: ChartProps
   // EFECTO 2: WebSocket para tiempo real
   useEffect(() => {
     const backendInterval = convertIntervalToBackendFormat(interval);
-    const socket = new WebSocket(`ws://localhost:8000/candles_live/${symbol}/${backendInterval}`);
+    const socket = new WebSocket(`ws://localhost:8000/live_candles/${symbol}/${backendInterval}`);
   
     socket.onmessage = (event) => {
       const data = JSON.parse(event.data);
