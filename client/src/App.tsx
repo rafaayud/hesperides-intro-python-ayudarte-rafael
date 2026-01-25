@@ -5,10 +5,11 @@ import { useState, useCallback } from "react"
 import { CryptoSelector } from "@/components/crypto-selector" 
 import { TimeframeSelector } from "@/components/timeframe-selector"
 import { TradingViewChart } from "@/components/candlestick-chart"
-import { StrategyPanel } from "@/components/strategy-panel"
-import { MetricsPanel } from "@/components/metrics-panel"
 import { CryptoTicker } from "@/components/crypto-ticker"
 import { Clock } from "@/components/clock"
+import { CreatePortfolio } from "@/components/create-portfolio"
+import { PricePanel } from "@/components/price-panel"
+import { Toaster } from "@/components/ui/sonner"
 import { Activity } from "lucide-react"
 
 export default function App() {
@@ -19,12 +20,6 @@ export default function App() {
   const [currentPrice, setCurrentPrice] = useState<number>(0)
   const [isPriceUp, setIsPriceUp] = useState<boolean>(true) // true = verde (subida), false = rojo (bajada)
   
-  // Estados de UI
-  const [selectedStrategy, setSelectedStrategy] = useState<string | null>(null)
-  const [isTrading, setIsTrading] = useState(false)
-  
-  // Datos de Paper Trading (Simplificado por ahora)
-  const [paperBalance, setPaperBalance] = useState(10000)
 
   // Esta función recibe el precio desde el componente TradingViewChart
   const handlePriceUpdate = useCallback((price: number, isUp: boolean) => {
@@ -37,6 +32,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
+      <Toaster />
       {/* Crypto Ticker Bar */}
       <CryptoTicker />
       
@@ -60,13 +56,6 @@ export default function App() {
               <TimeframeSelector value={timeframe} onChange={setTimeframe} />
               
               <Clock />
-              
-              <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm transition-colors ${
-                  isTrading ? "bg-green-500/20 text-green-500" : "bg-gray-500/20 text-gray-500"
-                }`}>
-                <span className={`h-2 w-2 rounded-full ${isTrading ? "bg-green-500 animate-pulse" : "bg-gray-500"}`} />
-                {isTrading ? "System Active" : "System Idle"}
-              </div>
             </div>
           </header>
 
@@ -74,40 +63,35 @@ export default function App() {
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
           
           {/* Gráfico (Ocupa 3 columnas) */}
-          <div className="lg:col-span-3 bg-card rounded-lg border border-border p-4 shadow-sm">
-            <div className="mb-2">
-              <h2 className="text-lg font-semibold">{selectedPair}</h2>
-              <p className="text-xs text-muted-foreground">Candlestick Chart with Volume</p>
+          <div className="lg:col-span-3 space-y-4 relative">
+            <div className="bg-card rounded-lg border border-border p-4 shadow-sm">
+              <div className="mb-2">
+                <h2 className="text-lg font-semibold">{selectedPair}</h2>
+                <p className="text-xs text-muted-foreground">Candlestick Chart with Volume</p>
+              </div>
+              <div className="h-[700px] w-full">
+                {/* Pasamos la función para recibir el precio */}
+                <TradingViewChart 
+                  symbol={selectedPair} 
+                  interval={timeframe} 
+                  onPriceUpdate={handlePriceUpdate} 
+                />
+              </div>
             </div>
-            <div className="h-[500px] w-full">
-              {/* Pasamos la función para recibir el precio */}
-              <TradingViewChart 
-                symbol={selectedPair} 
-                interval={timeframe} 
-                onPriceUpdate={handlePriceUpdate} 
-              />
+
+            {/* Create Portfolio Component - Debajo de la gráfica */}
+            <div className="relative mt-6" style={{ zIndex: 10 }}>
+              <CreatePortfolio />
             </div>
           </div>
 
           {/* Sidebar (Ocupa 1 columna) */}
           <div className="space-y-4">
-            {/* Panel de Métricas (Precio, Balance) */}
-            <MetricsPanel
-              backtestResult={null} // Desactivado temporalmente
+            {/* Panel de Precio Actual */}
+            <PricePanel
               currentPrice={currentPrice}
               isPriceUp={isPriceUp}
-              paperBalance={paperBalance}
-              paperPosition={null} // Desactivado temporalmente
-            />
-
-            {/* Panel de Estrategia */}
-            <StrategyPanel
-              selectedStrategy={selectedStrategy}
-              onSelect={setSelectedStrategy}
-              onBacktest={() => console.log("Backtest feature coming soon with Backend")}
-              onStartTrading={() => setIsTrading(!isTrading)}
-              isBacktesting={false}
-              isTrading={isTrading}
+              symbol={selectedPair}
             />
           </div>
         </div>

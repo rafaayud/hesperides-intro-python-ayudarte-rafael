@@ -9,18 +9,19 @@ class WebSocketController:
 
     async def stream_candles(
         self, 
-        websocket: WebSocket, 
-        symbol: str, 
-        interval: str, 
+        websocket: WebSocket,
+        symbol: str,
+        interval: str,
         exchange: str,
-        service_factory: ServiceFactory) -> None:
+        service_factory: ServiceFactory
+    ) -> None:
         """
         Stream candles in real time via WebSocket
         Args:
             websocket: WebSocket instance
-            symbol: Symbol to stream
-            interval: Interval to stream
-            exchange: Exchange to stream
+            symbol: Trading pair symbol (e.g., "BTCUSDT")
+            interval: Time interval (e.g., "H1", "M1")
+            exchange: Exchange name (e.g., "binance")
             service_factory: ServiceFactory instance
         """
         await websocket.accept()
@@ -53,4 +54,7 @@ class WebSocketController:
             logger.info(f"Client disconnected from {symbol}/{interval}")
         except Exception as e:
             logger.error(f"Error in stream: {e}", exc_info=True)
-            await websocket.close(code=1011, reason=f"Error: {str(e)}")
+            try:
+                await websocket.close(code=1011, reason=f"Error: {str(e)}")
+            except:
+                pass  # WebSocket might already be closed

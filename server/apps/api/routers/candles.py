@@ -1,18 +1,11 @@
 from fastapi import APIRouter, Query, Depends
-from pydantic import BaseModel
 from apps.api.controllers.candle_controller import CandleController
 from apps.api.service_factory import ServiceFactory
 from apps.api.dependencies import get_service_factory
+from apps.api.schemas.candles import SyncRequest
 
 router = APIRouter(prefix="/candles", tags=["candles"])
 controller = CandleController()
-
-
-class SyncRequest(BaseModel):
-    symbols: list[str] = ["BTCUSDT"]
-    intervals: list[str] = ["H1"]
-    exchange: str | None = None
-    storage: str | None = None
 
 
 @router.get("/{symbol}/{interval}")
