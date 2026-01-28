@@ -8,6 +8,7 @@ import { TradingViewChart } from "@/components/candlestick-chart"
 import { CryptoTicker } from "@/components/crypto-ticker"
 import { Clock } from "@/components/clock"
 import { CreatePortfolio } from "@/components/create-portfolio"
+import { PortfolioSelector } from "@/components/portfolio-selector"
 import { PricePanel } from "@/components/price-panel"
 import { Toaster } from "@/components/ui/sonner"
 import { Activity } from "lucide-react"
@@ -93,6 +94,9 @@ export default function App() {
               isPriceUp={isPriceUp}
               symbol={selectedPair}
             />
+            
+            {/* Portfolio Selector */}
+            <PortfolioSelector />
           </div>
         </div>
         </div>

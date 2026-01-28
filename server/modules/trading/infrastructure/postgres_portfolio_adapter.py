@@ -12,6 +12,7 @@ import logging
 import asyncpg
 from decimal import Decimal
 
+from modules.trading.application.services.strategy_factory import StrategyFactory
 
 class PostgresPortfolioAdapter(PortfolioStoragePort, metaclass=AdapterMeta):
     """Adapter to store the information of the portfolios: traders, trades, postions, PnL
@@ -103,7 +104,8 @@ class PostgresPortfolioAdapter(PortfolioStoragePort, metaclass=AdapterMeta):
                     # UPSERT traders (preserves existing traders if portfolio exists)
                     for trader in traders:
                         trader_id = trader.id
-                        strategy = trader.strategy.name
+                        
+                        strategy_key = StrategyFactory.get_strategy_key(trader.strategy)
                         symbol = trader.symbol.symbol
                         interval = trader.interval.value
                         capital = portfolio.get_capital(trader_id)
@@ -117,7 +119,7 @@ class PostgresPortfolioAdapter(PortfolioStoragePort, metaclass=AdapterMeta):
                             """,
                             portfolio_id,
                             trader_id,
-                            strategy,
+                            strategy_key, 
                             symbol,
                             interval,
                             capital

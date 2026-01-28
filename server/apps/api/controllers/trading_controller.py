@@ -1,11 +1,9 @@
 import logging
-from decimal import Decimal
+import asyncio
+from asyncio import Lock
+from typing import Dict, Optional
 from fastapi import HTTPException
-from modules.trading.domain.value_objects import Symbol, Interval
-from modules.trading.domain.aggregates import Portfolio, Trader
-from modules.trading.application.services.strategy_factory import StrategyFactory
 from apps.api.service_factory import ServiceFactory
-from apps.api.schemas.trading import CreateTradingRequest
 
 logger = logging.getLogger(__name__)
 
@@ -13,308 +11,256 @@ logger = logging.getLogger(__name__)
 class TradingController:
     """Controller for trading operations"""
     
-    async def get_strategies(self) -> dict:
-        """
-        Get all available trading strategies with their metadata.
-        
-        Returns:
-            dict: List of strategies with name, description, and parameter info
-        """
-        from modules.trading.application.services.strategy_factory import StrategyFactory
-        
-        strategies = StrategyFactory.get_all_strategies()
-        
-        # Strategy metadata for frontend
-        strategy_metadata = {
-            "mock_strategy": {
-                "name": "Mock Strategy",
-                "description": "Random strategy for testing purposes",
-                "display_name": "Mock Strategy"
-            },
-            "mean_cross": {
-                "name": "mean_cross",
-                "description": "Moving Average Crossover: Buy when fast MA crosses above slow MA",
-                "display_name": "Moving Average Cross"
-            },
-            "momentum": {
-                "name": "momentum",
-                "description": "Momentum strategy based on price change percentage",
-                "display_name": "Momentum"
-            },
-            "candle_pattern": {
-                "name": "candle_pattern",
-                "description": "Strategy based on candlestick pattern detection",
-                "display_name": "Candle Pattern"
-            }
-        }
-        
-        result = []
-        for strategy_name in strategies:
-            metadata = strategy_metadata.get(strategy_name, {
-                "name": strategy_name,
-                "description": "",
-                "display_name": strategy_name.replace("_", " ").title()
-            })
-            result.append({
-                "id": strategy_name,
-                **metadata
-            })
-        
-        return {
-            "strategies": result
-        }
+    # Store active trading engines by portfolio_id
+    _active_engines: Dict[str, any] = {}
+    _engine_tasks: Dict[str, asyncio.Task] = {}
+
+    _active_engines_lock = Lock()
+    _engine_tasks_lock = Lock()
     
-    async def get_strategy_params(self, strategy_name: str) -> dict:
+    async def start_trading(self, portfolio_id: str, service_factory: ServiceFactory) -> dict:
         """
-        Get parameter schema for a specific strategy.
+        Start trading for a portfolio.
         
         Args:
-            strategy_name: Name of the strategy
-            
-        Returns:
-            dict: Parameter schema with field definitions for the frontend
-        """
-        # Parameter schemas for each strategy
-        param_schemas = {
-            "mock_strategy": {
-                "common_params": [
-                    {
-                        "name": "min_candles",
-                        "type": "number",
-                        "label": "Minimum Candles",
-                        "description": "Minimum number of candles required before trading",
-                        "default": 10,
-                        "required": False,
-                        "min": 1
-                    },
-                    {
-                        "name": "execution_mode",
-                        "type": "select",
-                        "label": "Execution Mode",
-                        "description": "When to execute trades",
-                        "options": [
-                            {"value": "ON_CLOSE", "label": "On Candle Close"},
-                            {"value": "ON_TICK", "label": "On Every Tick"}
-                        ],
-                        "default": "ON_CLOSE",
-                        "required": False
-                    }
-                ],
-                "specific_params": []
-            },
-            "mean_cross": {
-                "common_params": [
-                    {
-                        "name": "execution_mode",
-                        "type": "select",
-                        "label": "Execution Mode",
-                        "description": "When to execute trades",
-                        "options": [
-                            {"value": "ON_CLOSE", "label": "On Candle Close"},
-                            {"value": "ON_TICK", "label": "On Every Tick"}
-                        ],
-                        "default": "ON_CLOSE",
-                        "required": False
-                    }
-                ],
-                "specific_params": [
-                    {
-                        "name": "slow_period",
-                        "type": "number",
-                        "label": "Slow Period",
-                        "description": "Period for slow moving average",
-                        "default": 50,
-                        "required": False,
-                        "min": 1
-                    },
-                    {
-                        "name": "fast_period",
-                        "type": "number",
-                        "label": "Fast Period",
-                        "description": "Period for fast moving average",
-                        "default": 10,
-                        "required": False,
-                        "min": 1
-                    }
-                ]
-            },
-            "momentum": {
-                "common_params": [
-                    {
-                        "name": "min_candles",
-                        "type": "number",
-                        "label": "Minimum Candles",
-                        "description": "Minimum number of candles required before trading",
-                        "default": 10,
-                        "required": False,
-                        "min": 1
-                    },
-                    {
-                        "name": "execution_mode",
-                        "type": "select",
-                        "label": "Execution Mode",
-                        "description": "When to execute trades",
-                        "options": [
-                            {"value": "ON_CLOSE", "label": "On Candle Close"},
-                            {"value": "ON_TICK", "label": "On Every Tick"}
-                        ],
-                        "default": "ON_CLOSE",
-                        "required": False
-                    }
-                ],
-                "specific_params": [
-                    {
-                        "name": "reference_period",
-                        "type": "number",
-                        "label": "Reference Period",
-                        "description": "Number of candles to look back for momentum calculation",
-                        "default": 14,
-                        "required": False,
-                        "min": 1
-                    },
-                    {
-                        "name": "threshold",
-                        "type": "number",
-                        "label": "Threshold",
-                        "description": "Minimum percentage change to trigger a signal (e.g., 0.02 = 2%)",
-                        "default": 0.02,
-                        "required": False,
-                        "min": 0,
-                        "step": 0.01
-                    }
-                ]
-            },
-            "candle_pattern": {
-                "common_params": [],
-                "specific_params": [
-                    {
-                        "name": "patterns",
-                        "type": "array",
-                        "label": "Patterns",
-                        "description": "List of candlestick patterns to detect (uses defaults if not specified)",
-                        "required": False
-                    }
-                ]
-            }
-        }
-        
-        strategy_lower = strategy_name.lower()
-        
-        if strategy_lower not in param_schemas:
-            from fastapi import HTTPException
-            from modules.trading.application.services.strategy_factory import StrategyFactory
-            available = ", ".join(StrategyFactory.get_all_strategies())
-            raise HTTPException(
-                status_code=404,
-                detail=f"Strategy '{strategy_name}' not found. Available strategies: {available}"
-            )
-        
-        schema = param_schemas[strategy_lower]
-        
-        return {
-            "strategy_name": strategy_lower,
-            "parameters": {
-                "common": schema["common_params"],
-                "specific": schema["specific_params"],
-                "all": schema["common_params"] + schema["specific_params"]
-            }
-        }
-    
-    async def create_trading(
-        self, 
-        request: CreateTradingRequest, 
-        service_factory: ServiceFactory
-    ) -> dict:
-        """
-        Create a trading portfolio and initialize the trading engine.
-        
-        Args:
-            request: Request with portfolio configuration
+            portfolio_id: ID of the portfolio to start trading
             service_factory: Factory to create services
             
         Returns:
-            dict: Portfolio information and engine status
+            dict: Trading engine status
         """
         try:
-            # 1. Create traders from request
-            traders = []
-            for trader_config in request.traders:
-                # Validate symbol and interval
-                try:
-                    symbol = Symbol(trader_config.symbol)
-                    # Try to convert interval - accept both enum name (H1) and value (1h)
-                    interval_str = trader_config.interval.upper()
-                    try:
-                        # First try as enum name (H1, M1, etc.)
-                        interval = Interval[interval_str]
-                    except KeyError:
-                        # If not found, try as enum value (1h, 1m, etc.)
-                        interval = Interval(trader_config.interval)
-                except (ValueError, KeyError) as e:
-                    valid_intervals = [f"{i.name} ({i.value})" for i in Interval]
-                    raise HTTPException(
-                        status_code=400, 
-                        detail=f"Invalid interval: '{trader_config.interval}'. Valid intervals: {', '.join(valid_intervals)}"
-                    )
-                
-                # Create strategy using factory (factory handles all parameter mapping)
-                try:
-                    strategy = StrategyFactory.create_strategy(
-                        strategy_name=trader_config.strategy,
-                        strategy_params=trader_config.strategy_params
-                    )
-                except (KeyError, ValueError, TypeError) as e:
-                    raise HTTPException(
-                        status_code=400,
-                        detail=f"Invalid strategy or parameters: {e}"
-                    )
-                
-                # Create trader
-                trader = Trader(
-                    id=f"{request.portfolio_id}_{symbol.symbol}_{interval.value}",
-                    strategy=strategy,
-                    symbol=symbol,
-                    interval=interval
+            # Check if trading is already running for this portfolio
+            if portfolio_id in self._active_engines:
+                return {
+                    "status": "already_running",
+                    "portfolio_id": portfolio_id,
+                    "message": "Trading is already running for this portfolio"
+                }
+            
+            # 1. Create portfolio manager and load portfolio
+            portfolio_manager = service_factory.create_portfolio_manager()
+            await portfolio_manager.connect()
+            
+            try:
+                portfolio = await portfolio_manager.load_portfolio(portfolio_id)
+            except ValueError as e:
+                await portfolio_manager.disconnect()
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Portfolio not found: {str(e)}"
                 )
-                traders.append(trader)
             
-            # 2. Create portfolio
-            portfolio = Portfolio(
-                id=request.portfolio_id,
-                name=request.name,
-                initial_capital=Decimal(str(request.capital)),
-                traders=traders
-            )
+            # 2. Create trading engine with portfolio manager
+            engine = service_factory.create_trading_engine(
+                exchange=None,  # Use defaults
+                stream=None,
+                order=None, portfolio_manager=portfolio_manager)
             
-            # 3. Create trading engine
-            engine = service_factory.create_trading_engine()
+            # 3. Connect engine adapters
+            await engine._exchange.connect()
+            await engine._stream.connect()
+            await engine._order.connect()
             
-            # 4. Initialize portfolio in engine
-            engine.initialize_portfolio(portfolio)
-            
-            # 5. Save portfolio to database (via startup)
+            # 4. Startup engine (restore state and warm-up traders)
             await engine.startup()
             
+            # 5. Start trading in background task (engine_task)
+            # Esto permite que el trading corra en background sin bloquear la respuesta HTTP
+            async def run_trading():
+                try:
+                    await engine.run()  # Este método es un loop infinito
+                except Exception as e:
+                    logger.error(f"Trading engine error for {portfolio_id}: {e}", exc_info=True)
+                finally:
+                    # Cleanup on exit
+                    if portfolio_id in self._active_engines:
+                        async with self._active_engines_lock:
+                            del self._active_engines[portfolio_id]
+                    if portfolio_id in self._engine_tasks:
+                        async with self._engine_tasks_lock:
+                            del self._engine_tasks[portfolio_id]
+                    await engine.stop()
+                    await engine._stream.disconnect()
+                    await engine._order.disconnect()
+                    await engine._exchange.disconnect()
+                    await portfolio_manager.disconnect()
+            
+            # Crear tarea en background y guardarla
+            task = asyncio.create_task(run_trading())
+            async with self._active_engines_lock:
+                self._active_engines[portfolio_id] = engine
+            async with self._engine_tasks_lock:
+                self._engine_tasks[portfolio_id] = task
+            
+            logger.info(f"Trading started for portfolio {portfolio_id}")
+            
             return {
-                "status": "success",
-                "portfolio_id": portfolio.id,
-                "portfolio_name": portfolio.name,
-                "traders_count": len(traders),
-                "capital": float(portfolio.initial_capital),
-                "traders": [
-                    {
-                        "id": t.id,
-                        "symbol": t.symbol.symbol,
-                        "interval": t.interval.value,
-                        "strategy": t.strategy.name,
-                        "min_candles": t.strategy.min_candles_required
-                    }
-                    for t in traders
-                ]
+                "status": "started",
+                "portfolio_id": portfolio_id,
+                "message": "Trading engine started successfully"
             }
+            
+        except HTTPException:
+            raise
         except Exception as e:
-            logger.error(f"Error creating trading portfolio: {e}", exc_info=True)
+            logger.error(f"Error starting trading for {portfolio_id}: {e}", exc_info=True)
             raise HTTPException(
-                status_code=500, 
-                detail=f"Failed to create trading portfolio: {str(e)}"
+                status_code=500,
+                detail=f"Failed to start trading: {str(e)}"
             )
+                
+    
+    async def stop_trading(self, portfolio_id: str, service_factory: ServiceFactory) -> dict:
+        """
+        Stop trading for a portfolio.
+        
+        Args:
+            portfolio_id: ID of the portfolio to stop trading
+            service_factory: Factory to create services
+            
+        Returns:
+            dict: Trading engine status
+        """
+        try:
+            if portfolio_id not in self._active_engines:
+                return {
+                    "status": "not_running",
+                    "portfolio_id": portfolio_id,
+                    "message": "Trading is not running for this portfolio"
+                }
+            
+            # Get engine and stop it
+            async with self._active_engines_lock:
+                engine = self._active_engines[portfolio_id]
+            await engine.stop()
+            
+            # Cancel task if it exists
+            if portfolio_id in self._engine_tasks:
+                async with self._engine_tasks_lock:
+                    task = self._engine_tasks[portfolio_id]
+                task.cancel()
+                try:
+                    await task
+                except asyncio.CancelledError:
+                    pass
+            
+            logger.info(f"Trading stopped for portfolio {portfolio_id}")
+            
+            return {
+                "status": "stopped",
+                "portfolio_id": portfolio_id,
+                "message": "Trading engine stopped successfully"
+            }
+            
+        except Exception as e:
+            logger.error(f"Error stopping trading for {portfolio_id}: {e}", exc_info=True)
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to stop trading: {str(e)}"
+            )
+    
+    async def get_trading_status(self, portfolio_id: str, service_factory: ServiceFactory) -> dict:
+        """
+        Get trading status for a portfolio.
+        
+        Args:
+            portfolio_id: ID of the portfolio
+            service_factory: Factory to create services
+            
+        Returns:
+            dict: Trading engine status
+        """
+        try:
+            is_running = portfolio_id in self._active_engines
+            
+            status_info = {
+                "portfolio_id": portfolio_id,
+                "is_running": is_running,
+                "status": "running" if is_running else "stopped"
+            }
+            
+            if is_running:
+                async with self._active_engines_lock:
+                    engine = self._active_engines[portfolio_id]
+                task = self._engine_tasks.get(portfolio_id)
+                
+                status_info.update({
+                    "running": engine._running if hasattr(engine, '_running') else False,
+                    "task_done": task.done() if task else False,
+                    "traders_count": len(engine._portfolio_manager.traders) if hasattr(engine, '_portfolio_manager') else 0
+                })
+            
+            return status_info
+            
+        except Exception as e:
+            logger.error(f"Error getting trading status for {portfolio_id}: {e}", exc_info=True)
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to get trading status: {str(e)}"
+            )
+    
+    async def get_active_portfolio(self, portfolio_id: str, service_factory: ServiceFactory) -> dict:
+        """
+        Get active portfolio with their details.
+        Returns portfolio from active trading engine if running, otherwise from database.
+        """
+        try:
+            if portfolio_id not in self._active_engines:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Portfolio not found: {portfolio_id}"
+                )
+            
+            async with self._active_engines_lock:
+                engine = self._active_engines[portfolio_id]
+
+            return {
+                "portfolio_id": portfolio_id,
+                "portfolio_name": engine._portfolio_manager.portfolio.name,
+                "portfolio_capital": engine._portfolio_manager.portfolio.initial_capital,
+                "portfolio_traders": len(engine._portfolio_manager.portfolio.traders)
+            }
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error getting active portfolio for {portfolio_id}: {e}", exc_info=True)
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to get active portfolio: {str(e)}"
+            )
+            
+
+            
+    
+    async def get_trades(self, portfolio_id: str, trader_id: Optional[str] = None, limit: int = 100, service_factory: Optional[ServiceFactory] = None) -> dict:
+        """
+        Get trades for a portfolio, optionally filtered by trader.
+        
+        Args:
+            portfolio_id: ID of the portfolio
+            trader_id: Optional trader ID to filter trades
+            limit: Maximum number of trades to return
+            service_factory: Factory to create services
+            
+        Returns:
+            dict: List of trades (historical and from active portfolio)
+        """
+        pass
+    
+    async def get_chart_data(self, portfolio_id: str, trader_id: str, limit: int = 100, service_factory: Optional[ServiceFactory] = None) -> dict:
+        """
+        Get chart data (candles) for a specific trader's symbol and interval.
+        This allows visualizing where the strategy is operating.
+        
+        Args:
+            portfolio_id: ID of the portfolio
+            trader_id: ID of the trader/strategy
+            limit: Number of candles to return
+            service_factory: Factory to create services
+            
+        Returns:
+            dict: Chart data with candles and trade markers
+        """
+        pass
+

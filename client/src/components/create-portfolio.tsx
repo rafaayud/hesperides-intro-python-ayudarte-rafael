@@ -30,6 +30,14 @@ export function CreatePortfolio() {
   const [portfolioId, setPortfolioId] = useState("")
   const [capital, setCapital] = useState<string>("10000")
   
+  // Adapters
+  const [adapters, setAdapters] = useState({
+    exchange: "",
+    stream: "",
+    order: "",
+    portfolio_storage: ""
+  })
+  
   // Traders
   const [traders, setTraders] = useState<TraderFormData[]>([
     { symbol: "BTCUSDT", interval: "H1", strategy: "", params: {} }
@@ -173,11 +181,14 @@ export function CreatePortfolio() {
               return
             }
 
+            // For now, always send None for adapters (using defaults)
+            // Implementation kept for future use
             const response = await createPortfolio({
               name: portfolioName,
               portfolio_id: portfolioId,
               traders: traderConfigs,
-              capital: capitalValue
+              capital: capitalValue,
+              adapters: undefined // Always use defaults for now
             })
 
       setSuccess(true)
@@ -191,6 +202,7 @@ export function CreatePortfolio() {
               setPortfolioName("")
               setPortfolioId("")
               setCapital("10000")
+              setAdapters({ exchange: "", stream: "", order: "", portfolio_storage: "" })
               setTraders([{ symbol: "BTCUSDT", interval: "H1", strategy: "", params: {} }])
               setSuccess(false)
             }, 2000)
@@ -263,6 +275,51 @@ export function CreatePortfolio() {
             />
           </div>
         </div>
+
+        {/* Adapters Configuration - Hidden for now, always uses defaults */}
+        {/* 
+        <div className="space-y-4">
+          <Label>Adapters (Optional - uses defaults if not specified)</Label>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="exchange-adapter">Exchange Adapter</Label>
+              <Input
+                id="exchange-adapter"
+                value={adapters.exchange}
+                onChange={(e) => setAdapters({ ...adapters, exchange: e.target.value })}
+                placeholder="binance (default)"
+              />
+            </div>
+            <div>
+              <Label htmlFor="stream-adapter">Stream Adapter</Label>
+              <Input
+                id="stream-adapter"
+                value={adapters.stream}
+                onChange={(e) => setAdapters({ ...adapters, stream: e.target.value })}
+                placeholder="binance_stream (default)"
+              />
+            </div>
+            <div>
+              <Label htmlFor="order-adapter">Order Adapter</Label>
+              <Input
+                id="order-adapter"
+                value={adapters.order}
+                onChange={(e) => setAdapters({ ...adapters, order: e.target.value })}
+                placeholder="binance_order (default)"
+              />
+            </div>
+            <div>
+              <Label htmlFor="portfolio-storage-adapter">Portfolio Storage</Label>
+              <Input
+                id="portfolio-storage-adapter"
+                value={adapters.portfolio_storage}
+                onChange={(e) => setAdapters({ ...adapters, portfolio_storage: e.target.value })}
+                placeholder="postgres (default)"
+              />
+            </div>
+          </div>
+        </div>
+        */}
 
         {/* Traders */}
         <div className="space-y-4 relative">

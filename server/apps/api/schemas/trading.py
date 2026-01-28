@@ -28,6 +28,12 @@ class TraderConfig(BaseModel):
     strategy: str = "mock_strategy"  # "mock_strategy", "mean_cross", "momentum", "candle_pattern"
     strategy_params: Optional[StrategyParams] = None
 
+class AdapterConfig(BaseModel):
+    """Configuration for adapters used by the trading engine"""
+    exchange: Optional[str] = None
+    stream: Optional[str] = None
+    order: Optional[str] = None
+    portfolio_storage: Optional[str] = None
 
 class CreateTradingRequest(BaseModel):
     """Request to create a trading portfolio"""
@@ -35,4 +41,5 @@ class CreateTradingRequest(BaseModel):
     portfolio_id: str
     traders: list[TraderConfig]  # Lista de traders con su configuración
     capital: float
+    adapters: Optional[AdapterConfig] = None
 

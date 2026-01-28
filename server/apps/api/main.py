@@ -7,7 +7,7 @@ from .config import Settings, get_settings
 from .registry import AdapterRegistry
 from .dependencies import setup_registry
 from .service_factory import ServiceFactory
-from .routers import candles, websocket, info, trading
+from .routers import candles, websocket, info, portfolio, trading
 
 logger = logging.getLogger(__name__)
 
@@ -47,4 +47,5 @@ app.add_middleware(
 app.include_router(info.router)
 app.include_router(candles.router)
 app.include_router(websocket.router)
+app.include_router(portfolio.router, prefix="/api/portfolio")
 app.include_router(trading.router, prefix="/api/trading")

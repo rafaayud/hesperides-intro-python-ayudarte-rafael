@@ -68,11 +68,7 @@ class StrategyFactory:
     @classmethod
     def _build_mean_cross_kwargs(cls, strategy_params: Any, common_kwargs: Dict[str, Any]) -> Dict[str, Any]:
         """Build kwargs for MeanCross strategy"""
-        # MeanCross doesn't accept min_candles (it calculates it automatically)
         kwargs = {}
-        # Only include mode from common_kwargs
-        if "mode" in common_kwargs:
-            kwargs["mode"] = common_kwargs["mode"]
         
         if strategy_params is None:
             return kwargs
@@ -87,11 +83,8 @@ class StrategyFactory:
     @classmethod
     def _build_momentum_kwargs(cls, strategy_params: Any, common_kwargs: Dict[str, Any]) -> Dict[str, Any]:
         """Build kwargs for Momentum strategy"""
-        # Momentum doesn't accept min_candles (it calculates it automatically)
+
         kwargs = {}
-        # Only include mode from common_kwargs
-        if "mode" in common_kwargs:
-            kwargs["mode"] = common_kwargs["mode"]
         
         if strategy_params is None:
             return kwargs
@@ -106,7 +99,6 @@ class StrategyFactory:
     @classmethod
     def _build_candle_pattern_kwargs(cls, strategy_params: Any, common_kwargs: Dict[str, Any]) -> Dict[str, Any]:
         """Build kwargs for CandlePatternStrategy"""
-        # CandlePatternStrategy doesn't accept min_candles or mode (it calculates min_candles automatically)
         kwargs = {}
         
         if strategy_params is None:
@@ -117,8 +109,8 @@ class StrategyFactory:
         
         return kwargs
 
-    # Dictionary mapping strategy names to their kwargs builder method names
-    _kwargs_builders: Dict[str, str] = {
+    # Dictionary mapping strategy names to their kwargs builder functions
+    _kwargs_builders: Dict[str, Callable[[Any, Dict[str, Any]], Dict[str, Any]]] = {
         "mock_strategy": "_build_mock_strategy_kwargs",
         "mean_cross": "_build_mean_cross_kwargs",
         "momentum": "_build_momentum_kwargs",
@@ -139,15 +131,15 @@ class StrategyFactory:
         # Build common kwargs first
         common_kwargs = cls._build_common_kwargs(strategy_params)
         
-        # Get the specific builder method name for this strategy
-        builder_method_name = cls._kwargs_builders.get(strategy_name)
+        # Get the specific builder for this strategy
+        builder_name = cls._kwargs_builders.get(strategy_name)
         
-        if builder_method_name is None:
+        if builder_name is None:
             # If no specific builder, use common kwargs (for strategies that don't need extra params)
             return common_kwargs
         
-        # Get the builder method and call it
-        builder = getattr(cls, builder_method_name)
+        # Call the builder function
+        builder = getattr(cls, builder_name)
         return builder(strategy_params, common_kwargs)
 
     @classmethod
@@ -191,3 +183,23 @@ class StrategyFactory:
     def get_all_strategies(cls) -> list[str]:
         """Get all available strategy names"""
         return list(cls._strategies.keys())
+    
+    @classmethod
+    def get_strategy_key(cls, strategy: Strategy) -> str:
+        """
+        Get the factory key for a strategy instance.
+        
+        Args:
+            strategy: Strategy instance
+            
+        Returns:
+            str: Factory key (e.g., "momentum", "mean_cross")
+            
+        Raises:
+            ValueError: If strategy class is not registered
+        """
+        strategy_class = type(strategy)
+        for key, cls_ref in cls._strategies.items():
+            if cls_ref == strategy_class:
+                return key
+        raise ValueError(f"Strategy class {strategy_class.__name__} is not registered in StrategyFactory")

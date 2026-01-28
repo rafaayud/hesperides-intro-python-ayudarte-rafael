@@ -14,10 +14,11 @@ from typing import Dict, List, Set, Tuple
 from decimal import Decimal
 from datetime import datetime
 
-from ...domain.ports import OrderPort, StreamPort, ExchangePort, PortfolioStoragePort
-from ...domain.value_objects import Symbol, Interval, Signal, Quantity, Side, TradeStatus, Timestamp, Price,Quantity
+from ...domain.ports import OrderPort, StreamPort, ExchangePort
+from ...application.services.portfolio_manager import PortfolioManager
+from ...domain.value_objects import Symbol, Interval, Signal, Quantity, Side, TradeStatus, Timestamp, Price
 
-from ...domain.aggregates import Portfolio, Trader
+from ...domain.aggregates import Trader
 from ...domain.entities import Candle, Position, Order, OrderResponse, Trade
 from ...domain.utils.decorators import timed, timed_async
 
@@ -38,22 +39,19 @@ class TradingEngine:
         exchange: ExchangePort,
         stream: StreamPort,
         order: OrderPort,
-        portfolio: Portfolio | None = None,
-        portfolio_storage: PortfolioStoragePort | None = None) -> None:
+        portfolio_manager: PortfolioManager | None = None) -> None:
 
         self._exchange = exchange
         self._stream = stream
         self._order = order
-        self._portfolio = portfolio
-        self._portfolio_storage = portfolio_storage
+        self._portfolio_manager = portfolio_manager
         
         # Index traders by (symbol, interval) for O(1) lookup when candle arrives
-        self._traders: List[Trader] = []
         self._traders_by_pair: Dict[Tuple[Symbol, Interval], List[Trader]] = {}
         
-        # Initialize traders if portfolio is provided
-        if portfolio is not None:
-            self.initialize_portfolio(portfolio)
+        # Initialize traders if portfolio manager is provided
+        if portfolio_manager is not None:
+            self._index_traders()
         
         # 3 Queues
         self._candle_queue: Queue[Candle] = Queue(maxsize=1000)
@@ -62,59 +60,35 @@ class TradingEngine:
         
         self._running = False
 
-    def initialize_portfolio(self, portfolio: Portfolio) -> None:
-        """Initialize portfolio and index traders."""
-        self._portfolio = portfolio
-        self._traders = portfolio.traders
+    def initialize_portfolio_manager(self, portfolio_manager: PortfolioManager) -> None:
+        """Initialize portfolio manager and index traders."""
+        self._portfolio_manager = portfolio_manager
+        self._index_traders()
+    
+    def _index_traders(self) -> None:
+        """Index traders by (symbol, interval) for efficient lookup."""
+        if self._portfolio_manager is None:
+            return
         
-        # Index traders by (symbol, interval) so we do not ask to open more streams than necessary
+        traders = self._portfolio_manager.traders
         self._traders_by_pair = {}
-        for trader in self._traders:
+        for trader in traders:
             key = (trader.symbol, trader.interval)
             if key not in self._traders_by_pair:
                 self._traders_by_pair[key] = []
             self._traders_by_pair[key].append(trader)
 
 
-    async def _restore_portfolio_state(self) -> None:
-        """Load and restore portfolio state from database (positions, trades, capital)."""
-        # Load complete state from database
-        state = await self._portfolio_storage.load_portfolio_state(self._portfolio.id)
-        
-        if state:
-            logger.info(f"Loading existing portfolio state for {self._portfolio.id}")
-            
-            # Build open positions dict
-            open_positions: Dict[str, Position] = {}
-            for pos_data in state["open_positions"]:
-                trader_id = pos_data["trader_id"]
-                # Only restore if trader exists
-                if any(t.id == trader_id for t in self._traders):
-                    position = Position(
-                        symbol=Symbol(pos_data["symbol"]),
-                        side=Side(pos_data["side"]),
-                        entry_price=Price(pos_data["entry_price"]),
-                        quantity=Quantity(pos_data["quantity"]),
-                        entry_time=Timestamp(pos_data["entry_time"]),
-                        status=TradeStatus.EXECUTED
-                    )
-                    open_positions[trader_id] = position
-            
-            # Restore complete state (positions, trades, capital)
-            self._portfolio.restore_state(
-                open_positions=open_positions,
-                trades_by_trader=state.get("trades_by_trader", {})
-            )
-        else:
-            # New portfolio, save it
-            await self._portfolio_storage.save_portfolio(self._portfolio)
-            logger.info(f"Created new portfolio {self._portfolio.id}")
 
     async def _warm_up_traders(self) -> None:
         """Warm-up all traders with historical data."""
-        logger.info(f"Warming up {len(self._traders)} traders...")
+        if self._portfolio_manager is None:
+            return
         
-        for trader in self._traders:
+        traders = self._portfolio_manager.traders
+        logger.info(f"Warming up {len(traders)} traders...")
+        
+        for trader in traders:
             candles = await self._exchange.get_historical_candles(
                 trader.symbol,
                 trader.interval,
@@ -127,14 +101,11 @@ class TradingEngine:
 
     async def startup(self) -> None:
         """Initialize trading engine: restore portfolio state and warm-up traders."""
-        if self._portfolio is None:
-            raise ValueError("Portfolio must be initialized before calling startup()")
-        
-        if self._portfolio_storage is None:
-            raise ValueError("Portfolio storage must be set before calling startup()")
+        if self._portfolio_manager is None:
+            raise ValueError("Portfolio manager must be initialized before calling startup()")
         
         # Step 1: Restore portfolio state from database (or create new)
-        await self._restore_portfolio_state()
+        await self._portfolio_manager.restore_state()
         
         # Step 2: Warm-up traders with historical data
         await self._warm_up_traders()
@@ -207,13 +178,16 @@ class TradingEngine:
     async def _create_order(self, trader: Trader, signal: Signal, candle: Candle) -> Order | None:
         """Create an order based on signal."""
         
+        if self._portfolio_manager is None:
+            return None
+        
         if signal == Signal.BUY:
-            if self._portfolio.has_position(trader.id):
+            if self._portfolio_manager.has_position(trader.id):
                 logger.info(f"{trader.id} already has position")
                 return None
             
             # Calculate quantity using all capital
-            capital = self._portfolio.get_capital(trader.id)
+            capital = self._portfolio_manager.get_capital(trader.id)
             price = await self._order.get_current_price(candle.symbol)
             quantity = Quantity(
                 (capital / price.value).quantize(Decimal("0.00001"))
@@ -228,11 +202,11 @@ class TradingEngine:
             )
         
         elif signal == Signal.SELL:
-            if not self._portfolio.has_position(trader.id):
+            if not self._portfolio_manager.has_position(trader.id):
                 logger.info(f"{trader.id} has no position")
                 return None
             
-            position = self._portfolio.get_position(trader.id)
+            position = self._portfolio_manager.get_position(trader.id)
             price = await self._order.get_current_price(candle.symbol)
             
             return Order(
@@ -274,6 +248,10 @@ class TradingEngine:
         """Update portfolio based on order responses."""
         logger.info("Portfolio updater started")
         
+        if self._portfolio_manager is None:
+            logger.error("Portfolio manager not initialized")
+            return
+        
         while self._running:
             order, response = await self._response_queue.get()
             
@@ -281,48 +259,27 @@ class TradingEngine:
                 logger.warning(f"Order not executed: {order.trader_id} → {response.status.value}")
                 continue
             
-            if order.side == Side.BUY:
-                position = Position(
-                    symbol=order.symbol,
-                    side=Side.BUY,
-                    entry_price=response.price,
-                    quantity=response.quantity,
-                    entry_time=Timestamp(datetime.now()),
-                    target_quantity=response.quantity,
-                    status=TradeStatus.EXECUTED
-                )
-
-                self._portfolio.open_position(order.trader_id, position)
-
-                # Save position to database
-                await self._portfolio_storage.save_position(
-                    self._portfolio.id,
-                    order.trader_id,
-                    position
-                )
-                logger.info(f"Position opened: {order.trader_id} @ {response.price}")
-                
-            elif order.side == Side.SELL:
-                # Get position before closing (to create trade)
-                position = self._portfolio.get_position(order.trader_id)
-                
-                # Close position and get trade
-                trade = self._portfolio.close_position(order.trader_id, response)
-                
-                # Save completed trade to database
-                await self._portfolio_storage.save_trade(
-                    self._portfolio.id,
-                    order.trader_id,
-                    trade
-                )
-                
-                # Delete position from database (it's now closed)
-                await self._portfolio_storage.delete_positions(
-                    self._portfolio.id,
-                    order.trader_id
-                )
-                
-                logger.info(f"Position closed: {order.trader_id} @ {response.price}, trade saved")
+            try:
+                if order.side == Side.BUY:
+                    position = Position(
+                        symbol=order.symbol,
+                        side=Side.BUY,
+                        entry_price=response.price,
+                        quantity=response.quantity,
+                        entry_time=Timestamp(datetime.now()),
+                        target_quantity=response.quantity,
+                        status=TradeStatus.EXECUTED
+                    )
+                    await self._portfolio_manager.open_position(order.trader_id, position)
+                    logger.info(f"🟢 BUY {order.trader_id} | {order.symbol.symbol} @ ${response.price.value:,.2f} | Qty: {response.quantity.value}")
+                    
+                elif order.side == Side.SELL:
+                    trade = await self._portfolio_manager.close_position(order.trader_id, response)
+                    status = "✅" if trade.winner else "❌"
+                    logger.info(f"🔴 SELL {order.trader_id} | {trade.symbol.symbol} | Entry: ${trade.entry_price.value:,.2f} → Exit: ${trade.exit_price.value:,.2f} | PnL: ${trade.pnl.value:+,.2f} ({trade.pnl_percentage:+.2f}%) {status}")
+                    
+            except Exception as e:
+                logger.error(f"Error updating portfolio for {order.trader_id}: {e}", exc_info=True)
 
     # ==================== Helpers ====================
     
@@ -339,7 +296,8 @@ class TradingEngine:
         await self._exchange.connect()
         await self._stream.connect()
         await self._order.connect()
-        await self._portfolio_storage.connect()
+        if self._portfolio_manager:
+            await self._portfolio_manager.connect()
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
@@ -347,4 +305,5 @@ class TradingEngine:
         await self._stream.disconnect()
         await self._order.disconnect()
         await self._exchange.disconnect()
-        await self._portfolio_storage.disconnect()
+        if self._portfolio_manager:
+            await self._portfolio_manager.disconnect()
