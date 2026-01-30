@@ -5,7 +5,7 @@ from .registry import AdapterRegistry
 
 if TYPE_CHECKING:
     from .service_factory import ServiceFactory
-
+    from .trading_state import TradingStateManager
 def get_service_factory(request: Request) -> "ServiceFactory":
     """Obtiene la ServiceFactory desde app.state (para endpoints HTTP)"""
     return request.app.state.services
@@ -13,6 +13,10 @@ def get_service_factory(request: Request) -> "ServiceFactory":
 def get_service_factory_from_websocket(websocket: WebSocket) -> "ServiceFactory":
     """Obtiene la ServiceFactory desde app.state (para WebSockets)"""
     return websocket.app.state.services
+
+def get_trading_state(request: Request) -> "TradingStateManager":
+    """Obtiene el TradingStateManager desde app.state"""
+    return request.app.state.trading_state
 
 def setup_registry(settings: Settings) -> None:
     from modules.trading.infrastructure.binance_adapter import BinanceAdapter

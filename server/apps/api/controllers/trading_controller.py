@@ -4,6 +4,7 @@ from asyncio import Lock
 from typing import Dict, Optional
 from fastapi import HTTPException
 from apps.api.service_factory import ServiceFactory
+from apps.api.trading_state import TradingStateManager
 
 logger = logging.getLogger(__name__)
 
@@ -11,14 +12,8 @@ logger = logging.getLogger(__name__)
 class TradingController:
     """Controller for trading operations"""
     
-    # Store active trading engines by portfolio_id
-    _active_engines: Dict[str, any] = {}
-    _engine_tasks: Dict[str, asyncio.Task] = {}
-
-    _active_engines_lock = Lock()
-    _engine_tasks_lock = Lock()
     
-    async def start_trading(self, portfolio_id: str, service_factory: ServiceFactory) -> dict:
+    async def start_trading(self, portfolio_id: str, service_factory: ServiceFactory, trading_state: TradingStateManager) -> dict:
         """
         Start trading for a portfolio.
         
@@ -31,7 +26,7 @@ class TradingController:
         """
         try:
             # Check if trading is already running for this portfolio
-            if portfolio_id in self._active_engines:
+            if await trading_state.is_running(portfolio_id):
                 return {
                     "status": "already_running",
                     "portfolio_id": portfolio_id,
@@ -74,25 +69,11 @@ class TradingController:
                     logger.error(f"Trading engine error for {portfolio_id}: {e}", exc_info=True)
                 finally:
                     # Cleanup on exit
-                    if portfolio_id in self._active_engines:
-                        async with self._active_engines_lock:
-                            del self._active_engines[portfolio_id]
-                    if portfolio_id in self._engine_tasks:
-                        async with self._engine_tasks_lock:
-                            del self._engine_tasks[portfolio_id]
-                    await engine.stop()
-                    await engine._stream.disconnect()
-                    await engine._order.disconnect()
-                    await engine._exchange.disconnect()
-                    await portfolio_manager.disconnect()
+                    await trading_state.shutdown(portfolio_id)
             
             # Crear tarea en background y guardarla
             task = asyncio.create_task(run_trading())
-            async with self._active_engines_lock:
-                self._active_engines[portfolio_id] = engine
-            async with self._engine_tasks_lock:
-                self._engine_tasks[portfolio_id] = task
-            
+            await trading_state.register_engine(portfolio_id, engine, task)
             logger.info(f"Trading started for portfolio {portfolio_id}")
             
             return {
@@ -111,7 +92,7 @@ class TradingController:
             )
                 
     
-    async def stop_trading(self, portfolio_id: str, service_factory: ServiceFactory) -> dict:
+    async def stop_trading(self, portfolio_id: str, service_factory: ServiceFactory, trading_state: TradingStateManager) -> dict:
         """
         Stop trading for a portfolio.
         
@@ -123,7 +104,7 @@ class TradingController:
             dict: Trading engine status
         """
         try:
-            if portfolio_id not in self._active_engines:
+            if not await trading_state.is_running(portfolio_id):
                 return {
                     "status": "not_running",
                     "portfolio_id": portfolio_id,
@@ -131,19 +112,9 @@ class TradingController:
                 }
             
             # Get engine and stop it
-            async with self._active_engines_lock:
-                engine = self._active_engines[portfolio_id]
-            await engine.stop()
-            
-            # Cancel task if it exists
-            if portfolio_id in self._engine_tasks:
-                async with self._engine_tasks_lock:
-                    task = self._engine_tasks[portfolio_id]
-                task.cancel()
-                try:
-                    await task
-                except asyncio.CancelledError:
-                    pass
+
+
+            await trading_state.shutdown(portfolio_id)
             
             logger.info(f"Trading stopped for portfolio {portfolio_id}")
             
@@ -160,7 +131,7 @@ class TradingController:
                 detail=f"Failed to stop trading: {str(e)}"
             )
     
-    async def get_trading_status(self, portfolio_id: str, service_factory: ServiceFactory) -> dict:
+    async def get_trading_status(self, portfolio_id: str, service_factory: ServiceFactory, trading_state: TradingStateManager) -> dict:
         """
         Get trading status for a portfolio.
         
@@ -172,7 +143,7 @@ class TradingController:
             dict: Trading engine status
         """
         try:
-            is_running = portfolio_id in self._active_engines
+            is_running = await trading_state.is_running(portfolio_id)
             
             status_info = {
                 "portfolio_id": portfolio_id,
@@ -181,9 +152,8 @@ class TradingController:
             }
             
             if is_running:
-                async with self._active_engines_lock:
-                    engine = self._active_engines[portfolio_id]
-                task = self._engine_tasks.get(portfolio_id)
+                engine = await trading_state.get_engine(portfolio_id)
+                task = await trading_state.get_task(portfolio_id)
                 
                 status_info.update({
                     "running": engine._running if hasattr(engine, '_running') else False,
@@ -200,67 +170,5 @@ class TradingController:
                 detail=f"Failed to get trading status: {str(e)}"
             )
     
-    async def get_active_portfolio(self, portfolio_id: str, service_factory: ServiceFactory) -> dict:
-        """
-        Get active portfolio with their details.
-        Returns portfolio from active trading engine if running, otherwise from database.
-        """
-        try:
-            if portfolio_id not in self._active_engines:
-                raise HTTPException(
-                    status_code=404,
-                    detail=f"Portfolio not found: {portfolio_id}"
-                )
-            
-            async with self._active_engines_lock:
-                engine = self._active_engines[portfolio_id]
 
-            return {
-                "portfolio_id": portfolio_id,
-                "portfolio_name": engine._portfolio_manager.portfolio.name,
-                "portfolio_capital": engine._portfolio_manager.portfolio.initial_capital,
-                "portfolio_traders": len(engine._portfolio_manager.portfolio.traders)
-            }
-        except HTTPException:
-            raise
-        except Exception as e:
-            logger.error(f"Error getting active portfolio for {portfolio_id}: {e}", exc_info=True)
-            raise HTTPException(
-                status_code=500,
-                detail=f"Failed to get active portfolio: {str(e)}"
-            )
-            
-
-            
-    
-    async def get_trades(self, portfolio_id: str, trader_id: Optional[str] = None, limit: int = 100, service_factory: Optional[ServiceFactory] = None) -> dict:
-        """
-        Get trades for a portfolio, optionally filtered by trader.
-        
-        Args:
-            portfolio_id: ID of the portfolio
-            trader_id: Optional trader ID to filter trades
-            limit: Maximum number of trades to return
-            service_factory: Factory to create services
-            
-        Returns:
-            dict: List of trades (historical and from active portfolio)
-        """
-        pass
-    
-    async def get_chart_data(self, portfolio_id: str, trader_id: str, limit: int = 100, service_factory: Optional[ServiceFactory] = None) -> dict:
-        """
-        Get chart data (candles) for a specific trader's symbol and interval.
-        This allows visualizing where the strategy is operating.
-        
-        Args:
-            portfolio_id: ID of the portfolio
-            trader_id: ID of the trader/strategy
-            limit: Number of candles to return
-            service_factory: Factory to create services
-            
-        Returns:
-            dict: Chart data with candles and trade markers
-        """
-        pass
 

@@ -23,7 +23,9 @@ class Momentum(Strategy):
         recent_price = prices[-1]
         reference_price = prices[-(self._reference_period+1)]
 
-        percentage_change = (recent_price - reference_price) / reference_price
+        # Calculate percentage change using Decimal values
+        price_diff = recent_price.value - reference_price.value
+        percentage_change = float(price_diff / reference_price.value)
 
         if percentage_change > self._threshold:
             return Signal.BUY

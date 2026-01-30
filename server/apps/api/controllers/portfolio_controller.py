@@ -6,6 +6,8 @@ from modules.trading.domain.aggregates import Portfolio, Trader
 from modules.trading.application.services.strategy_factory import StrategyFactory
 from apps.api.service_factory import ServiceFactory
 from apps.api.schemas.trading import CreateTradingRequest
+from apps.api.trading_state import TradingStateManager
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -178,7 +180,7 @@ class PortfolioController:
                 
                 # Create trader
                 trader = Trader(
-                    id=f"{request.portfolio_id}_{symbol.symbol}_{interval.value}",
+                    id=f"{request.portfolio_id}_{symbol.symbol}_{interval.value}_{strategy.name}",
                     strategy=strategy,
                     symbol=symbol,
                     interval=interval
@@ -249,20 +251,22 @@ class PortfolioController:
         try:
             # 1. Get portfolio manager
             portfolio_manager = service_factory.create_portfolio_manager()
+            await portfolio_manager.connect()
             
-            # 2. Load portfolio from database
-            portfolio = await portfolio_manager.load_portfolio(portfolio_id)
-            
-            # 3. Disconnect portfolio manager
-            await portfolio_manager.disconnect()
-            
-            return {
-                "status": "success",
-                "portfolio_id": portfolio.id,
-                "portfolio_name": portfolio.name,
-                "traders_count": len(portfolio.traders),
-                "capital": float(portfolio.initial_capital)
-            }
+            try:
+                # 2. Load portfolio from database
+                portfolio = await portfolio_manager.load_portfolio(portfolio_id)
+                
+                return {
+                    "status": "success",
+                    "portfolio_id": portfolio.id,
+                    "portfolio_name": portfolio.name,
+                    "traders_count": len(portfolio.traders),
+                    "capital": float(portfolio.initial_capital)
+                }
+            finally:
+                # 3. Disconnect portfolio manager
+                await portfolio_manager.disconnect()
 
         except Exception as e:
             logger.error(f"Error getting portfolio: {e}", exc_info=True)
@@ -303,3 +307,103 @@ class PortfolioController:
                 status_code=500, 
                 detail=f"Failed to list portfolios: {str(e)}"
             )
+
+    async def get_active_portfolio(self, portfolio_id: str, service_factory: ServiceFactory, trading_state: TradingStateManager) -> dict:
+        """
+        Get active portfolio with their details.
+        Returns portfolio from active trading engine if running, otherwise from database.
+        """
+        try:
+            if not await trading_state.is_running(portfolio_id):
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Portfolio not found: {portfolio_id}"
+                )
+            
+            engine = await trading_state.get_engine(portfolio_id)
+
+            return {
+                "portfolio_id": portfolio_id,
+                "portfolio_name": engine._portfolio_manager.portfolio.name,
+                "portfolio_capital": engine._portfolio_manager.portfolio.initial_capital,
+                "portfolio_traders": len(engine._portfolio_manager.portfolio.traders)
+            }
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error getting active portfolio for {portfolio_id}: {e}", exc_info=True)
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to get active portfolio: {str(e)}"
+            )
+
+    async def get_traders(self, portfolio_id: str, service_factory: Optional[ServiceFactory] = None) -> dict:
+        """
+        Get all traders for a portfolio.
+        """
+        try:
+            portfolio_manager = service_factory.create_portfolio_manager()
+            await portfolio_manager.connect()
+            portfolio = await portfolio_manager.load_portfolio(portfolio_id)
+            return {
+                "status": "success",
+                "traders": [trader.to_dict() for trader in portfolio.traders]
+            }
+        except Exception as e:
+            logger.error(f"Error getting traders for {portfolio_id}: {e}", exc_info=True)
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to get traders: {str(e)}"
+            )
+
+    async def get_trades(self, portfolio_id: str, trader_id: Optional[str] = None, limit: int = 100, service_factory: Optional[ServiceFactory] = None) -> dict:
+        """
+        Get trades for a portfolio, optionally filtered by trader.
+        
+        Args:
+            portfolio_id: ID of the portfolio
+            trader_id: Optional trader ID to filter trades
+            limit: Maximum number of trades to return
+            service_factory: Factory to create services
+            
+        Returns:
+            dict: List of trades (historical and from active portfolio)
+        """
+        try:    
+            portfolio_manager = service_factory.create_portfolio_manager()
+            await portfolio_manager.connect()
+
+            trades = await portfolio_manager.get_trades_by_trader(trader_id)
+
+
+            await portfolio_manager.disconnect()
+
+            return {
+                "status": "success",
+                "trades": [trade.to_dict() for trade in trades[:limit]]
+            }
+
+        except Exception as e:
+            logger.error(f"Error getting trades for {portfolio_id}: {e}", exc_info=True)
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to get trades: {str(e)}"
+            )
+    
+    async def get_chart_data(self, portfolio_id: str, trader_id: str, limit: int = 100, service_factory: Optional[ServiceFactory] = None) -> dict:
+        """
+        Get chart data (candles) for a specific trader's symbol and interval.
+        This allows visualizing where the strategy is operating.
+        
+        Args:
+            portfolio_id: ID of the portfolio
+            trader_id: ID of the trader/strategy
+            limit: Number of candles to return
+            service_factory: Factory to create services
+            
+        Returns:
+            dict: Chart data with candles and trade markers
+        """
+        pass
+
+

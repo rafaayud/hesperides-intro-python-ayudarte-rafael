@@ -239,6 +239,13 @@ class PortfolioManager:
                 await self._storage.save_trade(self._portfolio.id, trader_id, trade)
             await self._storage.delete_positions(self._portfolio.id, trader_id)
             self._portfolio.clear_new_trades(trader_id)
+
+        
+    async def get_trades_by_trader(self, trader_id: str) -> List[Trade]:
+        """Get the trades for a trader."""
+        if self._portfolio is None:
+            return []
+        return self._portfolio.trades(trader_id)
     
     # ============ Context Manager ============
     

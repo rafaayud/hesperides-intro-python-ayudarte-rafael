@@ -7,6 +7,7 @@ from .config import Settings, get_settings
 from .registry import AdapterRegistry
 from .dependencies import setup_registry
 from .service_factory import ServiceFactory
+from .trading_state import TradingStateManager
 from .routers import candles, websocket, info, portfolio, trading
 
 logger = logging.getLogger(__name__)
@@ -18,14 +19,18 @@ async def lifespan(app: FastAPI):
     # Startup
     settings = get_settings()
     setup_registry(settings)
+
     app.state.settings = settings
     app.state.services = ServiceFactory(AdapterRegistry, settings)
-    logger.info("✅ Registry and services initialized")
+    app.state.trading_state = TradingStateManager()
+
+    logger.info(" Registry and services initialized")
     
     yield
     
-    # Shutdown
-    logger.info("👋 Shutting down...")
+    logger.info(" Shutting down...")
+    await app.state.trading_state.shutdown_all()
+    logger.info(" Shutdown complete")
 
 
 app = FastAPI(

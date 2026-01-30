@@ -31,6 +31,11 @@ export default function App() {
     // Si (Estrategia === "RSI" && price < ...) -> Comprar
   }, [])
 
+  const handleTraderSelect = useCallback((payload: { symbol: string; interval: string }) => {
+    setSelectedPair(payload.symbol)
+    setTimeframe(payload.interval)
+  }, [])
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <Toaster />
@@ -96,7 +101,7 @@ export default function App() {
             />
             
             {/* Portfolio Selector */}
-            <PortfolioSelector />
+            <PortfolioSelector onTraderSelect={handleTraderSelect} />
           </div>
         </div>
         </div>

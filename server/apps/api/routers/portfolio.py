@@ -2,7 +2,10 @@ from fastapi import APIRouter, Depends
 from apps.api.controllers.portfolio_controller import PortfolioController
 from apps.api.service_factory import ServiceFactory
 from apps.api.dependencies import get_service_factory
+from apps.api.dependencies import get_trading_state
+from apps.api.trading_state import TradingStateManager
 from apps.api.schemas.trading import CreateTradingRequest
+from typing import Optional
 
 router = APIRouter(tags=["portfolio"])
 controller = PortfolioController()
@@ -34,3 +37,18 @@ async def list_portfolios(service_factory: ServiceFactory = Depends(get_service_
 async def get_portfolio(portfolio_id: str, service_factory: ServiceFactory = Depends(get_service_factory)) -> dict:
     """Get a portfolio by its ID"""
     return await controller.get_portfolio(portfolio_id, service_factory)
+
+@router.get("/active/{portfolio_id}")
+async def get_active_portfolio(portfolio_id: str, service_factory: ServiceFactory = Depends(get_service_factory), trading_state: TradingStateManager = Depends(get_trading_state)) -> dict:
+    """Get active portfolio with their details"""
+    return await controller.get_active_portfolio(portfolio_id, service_factory, trading_state)
+
+@router.get("/trades/{portfolio_id}")
+async def get_trades(portfolio_id: str, trader_id: Optional[str] = None, limit: int = 100, service_factory: ServiceFactory = Depends(get_service_factory), trading_state: TradingStateManager = Depends(get_trading_state)) -> dict:
+    """Get trades for a portfolio, optionally filtered by trader"""
+    return await controller.get_trades(portfolio_id, trader_id, limit, service_factory)
+
+@router.get("/chart/{portfolio_id}/{trader_id}")
+async def get_chart_data(portfolio_id: str, trader_id: str, limit: int = 100, service_factory: ServiceFactory = Depends(get_service_factory), trading_state: TradingStateManager = Depends(get_trading_state)) -> dict:
+    """Get chart data (candles) for a specific trader's symbol and interval"""
+    return await controller.get_chart_data(portfolio_id, trader_id, limit, service_factory)

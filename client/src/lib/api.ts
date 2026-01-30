@@ -83,6 +83,33 @@ export interface TradingStatus {
   traders_count?: number
 }
 
+export interface ActivePortfolioSummary {
+  portfolio_id: string
+  portfolio_name: string
+  portfolio_capital: number
+  portfolio_traders: number
+}
+
+export interface PortfolioTrader {
+  id: string
+  symbol: string
+  interval: string
+  strategy: string
+  [key: string]: any
+}
+
+export interface PortfolioTrade {
+  symbol: string
+  entry_price: number
+  exit_price: number
+  quantity: number
+  entry_time?: string
+  exit_time?: string
+  pnl?: number
+  pnl_percentage?: number
+  [key: string]: any
+}
+
 // Fetch all available strategies
 export async function fetchStrategies(): Promise<Strategy[]> {
   const response = await fetch(`${API_BASE_URL}/portfolio/strategies`)
@@ -165,5 +192,42 @@ export async function getTradingStatus(portfolioId: string): Promise<TradingStat
     throw new Error(`Failed to get trading status: ${response.statusText}`)
   }
   return await response.json()
+}
+
+// Get active portfolio summary (only works when trading is running)
+export async function getActivePortfolioSummary(portfolioId: string): Promise<ActivePortfolioSummary> {
+  const response = await fetch(`${API_BASE_URL}/trading/portfolio/${portfolioId}`)
+  if (!response.ok) {
+    throw new Error(`Failed to get active portfolio summary: ${response.statusText}`)
+  }
+  return await response.json()
+}
+
+// Get traders for a portfolio
+export async function getPortfolioTraders(portfolioId: string): Promise<PortfolioTrader[]> {
+  const response = await fetch(`${API_BASE_URL}/portfolio/trades/${portfolioId}`.replace("/trades/", "/traders/"))
+  if (!response.ok) {
+    throw new Error(`Failed to get portfolio traders: ${response.statusText}`)
+  }
+  const data = await response.json()
+  return data.traders || []
+}
+
+// Get trades for a portfolio, optionally filtered by trader
+export async function getPortfolioTrades(
+  portfolioId: string,
+  traderId?: string,
+  limit: number = 100
+): Promise<PortfolioTrade[]> {
+  const params = new URLSearchParams()
+  if (traderId) params.append("trader_id", traderId)
+  params.append("limit", String(limit))
+
+  const response = await fetch(`${API_BASE_URL}/portfolio/trades/${portfolioId}?${params.toString()}`)
+  if (!response.ok) {
+    throw new Error(`Failed to get portfolio trades: ${response.statusText}`)
+  }
+  const data = await response.json()
+  return data.trades || []
 }
 
