@@ -429,7 +429,9 @@ class PostgresPortfolioAdapter(PortfolioStoragePort, metaclass=AdapterMeta):
                         """,
                         portfolio_id, limit
                     )
-                logging.info(f"Got {len(rows)} trades for portfolio {portfolio_id}")
+                logging.info(f"Got {len(rows)} trades for portfolio {portfolio_id}, trader_id filter: {trader_id}")
+                for row in rows:
+                    logging.info(f"  Trade: trader_id={row.get('trader_id')}, entry={row.get('entry_time')}, exit={row.get('exit_time')}")
                 trades = [self._row_to_trade(r) for r in rows]
 
             return trades
@@ -444,7 +446,8 @@ class PostgresPortfolioAdapter(PortfolioStoragePort, metaclass=AdapterMeta):
             exit_price=Price(row["exit_price"]),
             entry_time=Timestamp(row["entry_time"]),
             exit_time=Timestamp(row["exit_time"]),
-            quantity=Quantity(row["quantity"])
+            quantity=Quantity(row["quantity"]),
+            trader_id=row.get("trader_id")
         )
 
     async def get_portfolio_pnl(self, portfolio_id: str) -> PnL:

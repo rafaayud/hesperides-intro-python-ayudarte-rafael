@@ -54,3 +54,10 @@ app.include_router(candles.router)
 app.include_router(websocket.router)
 app.include_router(portfolio.router, prefix="/api/portfolio")
 app.include_router(trading.router, prefix="/api/trading")
+
+# Root endpoint
+@app.get("/")
+async def root():
+    """Root endpoint - redirects to API docs"""
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url="/docs")

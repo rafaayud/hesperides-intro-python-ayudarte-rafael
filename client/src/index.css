@@ -3,42 +3,70 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* Dark theme optimized for trading dashboard */
+/* CoinMarketCap-inspired dark theme */
 :root {
-  --background: oklch(0.13 0.01 260);
-  --foreground: oklch(0.95 0 0);
-  --card: oklch(0.16 0.01 260);
-  --card-foreground: oklch(0.95 0 0);
-  --popover: oklch(0.16 0.01 260);
-  --popover-foreground: oklch(0.95 0 0);
-  --primary: oklch(0.65 0.2 145);
-  --primary-foreground: oklch(0.13 0.01 260);
-  --secondary: oklch(0.22 0.01 260);
-  --secondary-foreground: oklch(0.95 0 0);
-  --muted: oklch(0.22 0.01 260);
-  --muted-foreground: oklch(0.65 0 0);
-  --accent: oklch(0.65 0.2 145);
-  --accent-foreground: oklch(0.13 0.01 260);
-  --destructive: oklch(0.6 0.2 25);
-  --destructive-foreground: oklch(0.95 0 0);
-  --border: oklch(0.28 0.01 260);
-  --input: oklch(0.22 0.01 260);
-  --ring: oklch(0.65 0.2 145);
-  --chart-1: oklch(0.65 0.2 145);
-  --chart-2: oklch(0.6 0.2 25);
-  --chart-3: oklch(0.7 0.15 220);
-  --chart-4: oklch(0.75 0.15 85);
-  --chart-5: oklch(0.6 0.15 300);
-  --radius: 0.5rem;
+  /* Base colors - deep navy background */
+  --background: #0d1421;
+  --foreground: #f8fafc;
+  
+  /* Card colors - slightly lighter navy */
+  --card: #171d2d;
+  --card-foreground: #f8fafc;
+  
+  /* Popover - matches card */
+  --popover: #1a2035;
+  --popover-foreground: #f8fafc;
+  
+  /* Primary - CoinMarketCap blue */
+  --primary: #3861fb;
+  --primary-foreground: #ffffff;
+  
+  /* Secondary - subtle dark */
+  --secondary: #1e2738;
+  --secondary-foreground: #f8fafc;
+  
+  /* Muted - for subtle text and backgrounds */
+  --muted: #232d42;
+  --muted-foreground: #808a9d;
+  
+  /* Accent - same as primary for consistency */
+  --accent: #3861fb;
+  --accent-foreground: #ffffff;
+  
+  /* Destructive - CoinMarketCap red */
+  --destructive: #ea3943;
+  --destructive-foreground: #ffffff;
+  
+  /* Border and input */
+  --border: #2c3650;
+  --input: #1e2738;
+  --ring: #3861fb;
+  
+  /* Chart colors */
+  --chart-1: #16c784;
+  --chart-2: #ea3943;
+  --chart-3: #3861fb;
+  --chart-4: #f0b90b;
+  --chart-5: #8b5cf6;
+  
+  --radius: 0.625rem;
 
-  /* Custom trading colors */
-  --profit: oklch(0.65 0.2 145);
-  --loss: oklch(0.6 0.2 25);
+  /* Trading colors - CoinMarketCap green/red */
+  --profit: #16c784;
+  --loss: #ea3943;
+  
+  /* Additional utility colors */
+  --warning: #f0b90b;
+  --info: #3861fb;
 }
 
 @theme inline {
-  --font-sans: "Inter", system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", monospace;
+  /* Typography - distinctive fonts */
+  --font-sans: "DM Sans", "Inter", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "Fira Code", monospace;
+  --font-display: "Space Grotesk", "DM Sans", system-ui, sans-serif;
+  
+  /* Colors */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -63,12 +91,18 @@
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
+  
+  /* Border radius */
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+  
+  /* Trading colors */
   --color-profit: var(--profit);
   --color-loss: var(--loss);
+  --color-warning: var(--warning);
+  --color-info: var(--info);
 }
 
 @layer base {
@@ -76,10 +110,27 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
+  }
+  
+  /* Custom scrollbar for the dark theme */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: var(--background);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--muted-foreground);
   }
 }
 
+/* Ticker scroll animation */
 @keyframes scroll {
   0% {
     transform: translateX(0);
@@ -97,4 +148,52 @@
 
 .animate-scroll:hover {
   animation-play-state: paused;
+}
+
+/* Pulse animation for live indicators */
+@keyframes pulse-dot {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.animate-pulse-dot {
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+/* Gradient text utility */
+.text-gradient {
+  background: linear-gradient(135deg, var(--primary) 0%, #6b8cff 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Card hover effects */
+.card-hover {
+  transition: all 0.2s ease;
+}
+.card-hover:hover {
+  background: var(--secondary);
+  border-color: var(--primary);
+}
+
+/* Status badge variants */
+.status-running {
+  background: rgba(22, 199, 132, 0.15);
+  color: var(--profit);
+  border: 1px solid rgba(22, 199, 132, 0.3);
+}
+.status-stopped {
+  background: rgba(234, 57, 67, 0.15);
+  color: var(--loss);
+  border: 1px solid rgba(234, 57, 67, 0.3);
+}
+.status-pending {
+  background: rgba(240, 185, 11, 0.15);
+  color: var(--warning);
+  border: 1px solid rgba(240, 185, 11, 0.3);
 }

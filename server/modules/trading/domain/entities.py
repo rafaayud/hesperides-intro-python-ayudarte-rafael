@@ -14,6 +14,7 @@ class Trade:
     exit_time: Timestamp
     quantity: Quantity
     
+    trader_id: str = None  # Added to track which trader made this trade
 
     entry_execution_ids: list[str] = None
 
@@ -42,6 +43,22 @@ class Trade:
     def winner(self) -> bool:
         """Returns True if trade was profitable"""
         return self.pnl.is_positive
+
+    def to_dict(self) -> dict:
+        """Serialize trade to dictionary for API responses."""
+        return {
+            "trader_id": self.trader_id,
+            "symbol": self.symbol.symbol,
+            "entry_price": float(self.entry_price.value),
+            "exit_price": float(self.exit_price.value),
+            "entry_time": self.entry_time.timestamp.isoformat(),
+            "exit_time": self.exit_time.timestamp.isoformat(),
+            "quantity": float(self.quantity.value),
+            "pnl": float(self.pnl.value),
+            "pnl_percentage": self.pnl_percentage,
+            "winner": self.winner,
+            "commission": float(self.commission) if self.commission else 0.0,
+        }
 
     def __str__(self) -> str:
         return f"{self.symbol} {self.quantity.value} @ {self.entry_price.value} -> {self.exit_price.value} ({self.pnl_percentage:+.2f}%)"
@@ -74,6 +91,18 @@ class Position:
     def is_filled_completely(self) -> bool:
         """Returns True if the position is filled completely"""
         return self.status == TradeStatus.EXECUTED
+
+    def to_dict(self) -> dict:
+        """Serialize position to dictionary for API responses."""
+        return {
+            "symbol": self.symbol.symbol,
+            "side": self.side.value,
+            "entry_price": float(self.entry_price.value),
+            "entry_time": self.entry_time.timestamp.isoformat(),
+            "quantity": float(self.quantity.value),
+            "status": self.status.value,
+            "current_value": float(self.entry_price.value * self.quantity.value),
+        }
 
     def close(self, exit_price: Price, exit_time: Timestamp) -> Trade:
 

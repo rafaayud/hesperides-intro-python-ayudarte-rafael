@@ -83,33 +83,6 @@ export interface TradingStatus {
   traders_count?: number
 }
 
-export interface ActivePortfolioSummary {
-  portfolio_id: string
-  portfolio_name: string
-  portfolio_capital: number
-  portfolio_traders: number
-}
-
-export interface PortfolioTrader {
-  id: string
-  symbol: string
-  interval: string
-  strategy: string
-  [key: string]: any
-}
-
-export interface PortfolioTrade {
-  symbol: string
-  entry_price: number
-  exit_price: number
-  quantity: number
-  entry_time?: string
-  exit_time?: string
-  pnl?: number
-  pnl_percentage?: number
-  [key: string]: any
-}
-
 // Fetch all available strategies
 export async function fetchStrategies(): Promise<Strategy[]> {
   const response = await fetch(`${API_BASE_URL}/portfolio/strategies`)
@@ -194,40 +167,191 @@ export async function getTradingStatus(portfolioId: string): Promise<TradingStat
   return await response.json()
 }
 
-// Get active portfolio summary (only works when trading is running)
-export async function getActivePortfolioSummary(portfolioId: string): Promise<ActivePortfolioSummary> {
-  const response = await fetch(`${API_BASE_URL}/trading/portfolio/${portfolioId}`)
+// ============ Portfolio Details ============
+
+export interface Trader {
+  id: string
+  symbol: string
+  interval: string
+  strategy: string
+  strategy_name?: string
+}
+
+export interface PortfolioDetails {
+  status: string
+  portfolio_id: string
+  portfolio_name: string
+  traders_count: number
+  capital: number
+  traders: Trader[]
+}
+
+export interface Trade {
+  id: string
+  trader_id: string
+  symbol: string
+  side: 'BUY' | 'SELL'
+  entry_price: number
+  exit_price: number
+  quantity: number
+  entry_time: string
+  exit_time: string
+  pnl: number
+  pnl_percentage: number
+  status: string
+}
+
+export interface ChartCandle {
+  time: number
+  open: number
+  high: number
+  low: number
+  close: number
+  volume: number
+}
+
+export interface TradeMarker {
+  time: number
+  position: 'aboveBar' | 'belowBar'
+  color: string
+  shape: 'arrowUp' | 'arrowDown'
+  text: string
+  id: string
+}
+
+export interface ChartData {
+  candles: ChartCandle[]
+  trades: TradeMarker[]
+}
+
+// Get portfolio details with traders
+export async function getPortfolioDetails(portfolioId: string): Promise<PortfolioDetails> {
+  const response = await fetch(`${API_BASE_URL}/portfolio/${portfolioId}`)
   if (!response.ok) {
-    throw new Error(`Failed to get active portfolio summary: ${response.statusText}`)
+    throw new Error(`Failed to get portfolio details: ${response.statusText}`)
   }
   return await response.json()
 }
 
 // Get traders for a portfolio
-export async function getPortfolioTraders(portfolioId: string): Promise<PortfolioTrader[]> {
-  const response = await fetch(`${API_BASE_URL}/portfolio/trades/${portfolioId}`.replace("/trades/", "/traders/"))
+export async function getPortfolioTraders(portfolioId: string): Promise<{ status: string; traders: Trader[] }> {
+  const response = await fetch(`${API_BASE_URL}/portfolio/traders/${portfolioId}`)
   if (!response.ok) {
     throw new Error(`Failed to get portfolio traders: ${response.statusText}`)
   }
-  const data = await response.json()
-  return data.traders || []
+  return await response.json()
 }
 
-// Get trades for a portfolio, optionally filtered by trader
+// Get trades for a portfolio/trader
 export async function getPortfolioTrades(
-  portfolioId: string,
-  traderId?: string,
+  portfolioId: string, 
+  traderId?: string, 
   limit: number = 100
-): Promise<PortfolioTrade[]> {
+): Promise<{ status: string; trades: Trade[] }> {
   const params = new URLSearchParams()
-  if (traderId) params.append("trader_id", traderId)
-  params.append("limit", String(limit))
-
-  const response = await fetch(`${API_BASE_URL}/portfolio/trades/${portfolioId}?${params.toString()}`)
+  if (traderId) params.append('trader_id', traderId)
+  params.append('limit', limit.toString())
+  
+  const response = await fetch(`${API_BASE_URL}/portfolio/trades/${portfolioId}?${params}`)
   if (!response.ok) {
-    throw new Error(`Failed to get portfolio trades: ${response.statusText}`)
+    throw new Error(`Failed to get trades: ${response.statusText}`)
+  }
+  return await response.json()
+}
+
+// Get chart data with trade markers for a trader
+export async function getTraderChartData(
+  portfolioId: string,
+  traderId: string,
+  limit: number = 500
+): Promise<ChartData> {
+  const response = await fetch(
+    `${API_BASE_URL}/portfolio/chart/${portfolioId}/${traderId}?limit=${limit}`
+  )
+  if (!response.ok) {
+    throw new Error(`Failed to get chart data: ${response.statusText}`)
+  }
+  return await response.json()
+}
+
+// Delete a portfolio
+export async function deletePortfolio(portfolioId: string): Promise<{ message: string }> {
+  const response = await fetch(`${API_BASE_URL}/portfolio/${portfolioId}`, {
+    method: 'DELETE',
+  })
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: response.statusText }))
+    throw new Error(error.detail || `Failed to delete portfolio: ${response.statusText}`)
+  }
+  return await response.json()
+}
+
+// ============ Global Stats & Positions ============
+
+export interface GlobalStats {
+  total_portfolios: number
+  running_portfolios: number
+  total_capital: number
+  total_pnl: number
+  total_pnl_percentage?: number
+  total_trades: number
+  winning_trades?: number
+  win_rate: number
+  best_portfolio?: { id: string | null; pnl: number | null }
+  worst_portfolio?: { id: string | null; pnl: number | null }
+}
+
+export interface OpenPosition {
+  portfolio_id?: string
+  symbol: string
+  side: string
+  entry_price: number
+  quantity: number
+  entry_time: string
+  current_value: number
+  status?: string
+}
+
+export interface OpenPositionsResponse {
+  positions: OpenPosition[]
+  total_value: number
+  by_symbol: Record<string, number>
+}
+
+// Get global stats for all portfolios
+export async function getGlobalStats(): Promise<GlobalStats> {
+  const response = await fetch(`${API_BASE_URL}/portfolio/stats/global`)
+  if (!response.ok) {
+    throw new Error(`Failed to get global stats: ${response.statusText}`)
   }
   const data = await response.json()
-  return data.trades || []
+  // Backend returns { status: "success", stats: {...} }
+  return data.stats || data
+}
+
+// Get all open positions
+export async function getOpenPositions(): Promise<OpenPositionsResponse> {
+  const response = await fetch(`${API_BASE_URL}/portfolio/positions/open`)
+  if (!response.ok) {
+    throw new Error(`Failed to get open positions: ${response.statusText}`)
+  }
+  const data = await response.json()
+  
+  // Process positions to calculate totals
+  const positions = data.positions || []
+  let total_value = 0
+  const by_symbol: Record<string, number> = {}
+  
+  for (const pos of positions) {
+    const value = pos.current_value || (pos.entry_price * pos.quantity)
+    total_value += value
+    by_symbol[pos.symbol] = (by_symbol[pos.symbol] || 0) + value
+  }
+  
+  return {
+    positions,
+    total_value,
+    by_symbol
+  }
 }
 

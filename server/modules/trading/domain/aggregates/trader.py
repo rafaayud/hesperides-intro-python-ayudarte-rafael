@@ -273,6 +273,20 @@ class Trader:
         self.warm_up(historical_candles)
         logger.info(f"Trader '{self.id}' recovered")
 
+    def to_dict(self) -> dict:
+        """Serialize trader to dictionary for API responses."""
+        return {
+            "id": self.id,
+            "symbol": self.symbol.symbol,
+            "interval": self.interval.value,
+            "strategy": self.strategy.name,
+            "strategy_name": self.strategy.__class__.__name__,
+            "min_candles": self.strategy.min_candles_required,
+            "is_ready": self.is_ready,
+            "is_degraded": self.is_degraded,
+            "candle_count": self.candle_count,
+        }
+
     def __repr__(self) -> str:
         status = "READY" if self.is_ready else "WARMING"
         if self.is_degraded:

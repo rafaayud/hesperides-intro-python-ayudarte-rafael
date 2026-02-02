@@ -1,0 +1,42 @@
+# docker-compose.yml
+services:
+  trading_app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: trading_app
+    environment:
+      # Tu app usa DATABASE_URL en config.py
+      # Conecta al PostgreSQL existente (postgres-trading) usando la red compartida
+      DATABASE_URL: postgresql://postgres:1234@postgres-trading:5432/postgres
+    ports:
+      - "8000:8000"
+    volumes:
+      # Hot reload en desarrollo
+      - ./server:/app/server
+    restart: unless-stopped
+    networks:
+      - trading_network
+
+  frontend:
+    image: node:20-alpine
+    container_name: trading_frontend
+    working_dir: /app
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./client:/app
+      - /app/node_modules  # Evita sobrescribir node_modules del host
+    environment:
+      - VITE_API_URL=http://localhost:8000/api
+    depends_on:
+      - trading_app
+    restart: unless-stopped
+    networks:
+      - trading_network
+
+networks:
+  trading_network:
+    external: true
+    name: trading_network

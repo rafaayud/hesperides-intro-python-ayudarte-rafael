@@ -1,0 +1,33 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+.venv
+venv/
+.pytest_cache/
+.mypy_cache/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# Node (client)
+client/node_modules/
+client/.next/
+
+# Env
+.env
+.env.local
+
+# Tests
+htmlcov/
+.coverage
+
+# Otros
+*.log
+.DS_Store

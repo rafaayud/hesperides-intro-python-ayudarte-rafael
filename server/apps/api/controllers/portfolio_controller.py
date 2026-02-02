@@ -204,14 +204,9 @@ class PortfolioController:
             # 4. Initialize portfolio in manager
             portfolio_manager.initialize_portfolio(portfolio)
             
-            # 5. Connect portfolio manager (connects storage)
-            await portfolio_manager.connect()
-            
-            # 6. Restore state (saves if new, restores if exists)
-            await portfolio_manager.restore_state()
-            
-            # 7. Disconnect (will be reconnected when trading starts)
-            await portfolio_manager.disconnect()
+            # 5. Connect, restore state, and disconnect (will be reconnected when trading starts)
+            async with portfolio_manager:
+                await portfolio_manager.restore_state()
             
             return {
                 "status": "success",
@@ -249,12 +244,8 @@ class PortfolioController:
             dict: Portfolio information
         """
         try:
-            # 1. Get portfolio manager
             portfolio_manager = service_factory.create_portfolio_manager()
-            await portfolio_manager.connect()
-            
-            try:
-                # 2. Load portfolio from database
+            async with portfolio_manager:
                 portfolio = await portfolio_manager.load_portfolio(portfolio_id)
                 
                 return {
@@ -264,9 +255,6 @@ class PortfolioController:
                     "traders_count": len(portfolio.traders),
                     "capital": float(portfolio.initial_capital)
                 }
-            finally:
-                # 3. Disconnect portfolio manager
-                await portfolio_manager.disconnect()
 
         except Exception as e:
             logger.error(f"Error getting portfolio: {e}", exc_info=True)
@@ -286,20 +274,14 @@ class PortfolioController:
             dict: List of portfolios
         """
         try:
-            # 1. Get portfolio manager
             portfolio_manager = service_factory.create_portfolio_manager()
-            await portfolio_manager.connect()
-            
-            try:
-                # 2. List portfolios from database
+            async with portfolio_manager:
                 portfolios = await portfolio_manager._storage.list_portfolios()
                 
                 return {
                     "status": "success",
                     "portfolios": portfolios
                 }
-            finally:
-                await portfolio_manager.disconnect()
                 
         except Exception as e:
             logger.error(f"Error listing portfolios: {e}", exc_info=True)
@@ -343,12 +325,12 @@ class PortfolioController:
         """
         try:
             portfolio_manager = service_factory.create_portfolio_manager()
-            await portfolio_manager.connect()
-            portfolio = await portfolio_manager.load_portfolio(portfolio_id)
-            return {
-                "status": "success",
-                "traders": [trader.to_dict() for trader in portfolio.traders]
-            }
+            async with portfolio_manager:
+                portfolio = await portfolio_manager.load_portfolio(portfolio_id)
+                return {
+                    "status": "success",
+                    "traders": [trader.to_dict() for trader in portfolio.traders]
+                }
         except Exception as e:
             logger.error(f"Error getting traders for {portfolio_id}: {e}", exc_info=True)
             raise HTTPException(
@@ -371,17 +353,13 @@ class PortfolioController:
         """
         try:    
             portfolio_manager = service_factory.create_portfolio_manager()
-            await portfolio_manager.connect()
-
-            trades = await portfolio_manager.get_trades_by_trader(trader_id)
-
-
-            await portfolio_manager.disconnect()
-
-            return {
-                "status": "success",
-                "trades": [trade.to_dict() for trade in trades[:limit]]
-            }
+            async with portfolio_manager:
+                trades = await portfolio_manager._storage.get_trades(portfolio_id, trader_id, limit)
+                
+                return {
+                    "status": "success",
+                    "trades": [trade.to_dict() for trade in trades]
+                }
 
         except Exception as e:
             logger.error(f"Error getting trades for {portfolio_id}: {e}", exc_info=True)
@@ -407,3 +385,148 @@ class PortfolioController:
         pass
 
 
+    async def delete_portfolio(self, portfolio_id: str, service_factory: ServiceFactory, trading_state: TradingStateManager) -> dict:
+        """
+        Delete a portfolio by its ID.
+        """
+        try:
+            if trading_state.is_running(portfolio_id):
+                await trading_state.shutdown(portfolio_id)
+
+            portfolio_manager = service_factory.create_portfolio_manager()
+            async with portfolio_manager:
+                await portfolio_manager.delete_portfolio(portfolio_id)
+            
+            return {"message": "Portfolio deleted successfully"}
+        except Exception as e:
+            logger.error(f"Error deleting portfolio {portfolio_id}: {e}", exc_info=True)
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to delete portfolio: {str(e)}"
+            )
+    
+    async def get_positions(self, portfolio_id: str, service_factory: ServiceFactory) -> dict:
+        """
+        Get positions from a portfolio.
+        """
+        try:
+            portfolio_manager = service_factory.create_portfolio_manager()
+            async with portfolio_manager:
+                positions = await portfolio_manager.get_positions(portfolio_id)
+                return {
+                    "status": "success",
+                    "positions": [position.to_dict() for position in positions]
+                }
+        except Exception as e:
+            logger.error(f"Error getting positions for {portfolio_id}: {e}", exc_info=True)
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to get positions: {str(e)}"
+            )
+
+    async def get_global_stats(self, service_factory: ServiceFactory, trading_state: TradingStateManager) -> dict:
+        """
+        Get global statistics across all portfolios.
+        """
+        try:
+            portfolio_manager = service_factory.create_portfolio_manager()
+            async with portfolio_manager:
+                portfolios = await portfolio_manager._storage.list_portfolios()
+                
+                total_capital = Decimal("0")
+                total_pnl = Decimal("0")
+                total_trades = 0
+                winning_trades = 0
+                running_count = 0
+                best_portfolio = {"id": None, "pnl": Decimal("-999999999")}
+                worst_portfolio = {"id": None, "pnl": Decimal("999999999")}
+                
+                for portfolio_info in portfolios:
+                    portfolio_id = portfolio_info.get("id")
+                    initial_capital = Decimal(str(portfolio_info.get("initial_capital", 0)))
+                    total_capital += initial_capital
+                    
+                    # Check if running
+                    if await trading_state.is_running(portfolio_id):
+                        running_count += 1
+                    
+                    # Get trades for PnL calculation
+                    try:
+                        trades = await portfolio_manager._storage.get_trades(portfolio_id)
+                        portfolio_pnl = Decimal("0")
+                        for trade in trades:
+                            trade_pnl = trade.pnl.value if hasattr(trade, 'pnl') else Decimal("0")
+                            portfolio_pnl += trade_pnl
+                            total_pnl += trade_pnl
+                            total_trades += 1
+                            if hasattr(trade, 'winner') and trade.winner:
+                                winning_trades += 1
+                        
+                        if portfolio_pnl > best_portfolio["pnl"]:
+                            best_portfolio = {"id": portfolio_id, "pnl": portfolio_pnl}
+                        if portfolio_pnl < worst_portfolio["pnl"]:
+                            worst_portfolio = {"id": portfolio_id, "pnl": portfolio_pnl}
+                    except Exception:
+                        pass
+                
+                win_rate = (winning_trades / total_trades * 100) if total_trades > 0 else 0.0
+                
+                return {
+                    "status": "success",
+                    "stats": {
+                        "total_portfolios": len(portfolios),
+                        "running_portfolios": running_count,
+                        "total_capital": float(total_capital),
+                        "total_pnl": float(total_pnl),
+                        "total_trades": total_trades,
+                        "winning_trades": winning_trades,
+                        "win_rate": win_rate,
+                        "best_portfolio": {
+                            "id": best_portfolio["id"],
+                            "pnl": float(best_portfolio["pnl"]) if best_portfolio["id"] else None
+                        },
+                        "worst_portfolio": {
+                            "id": worst_portfolio["id"],
+                            "pnl": float(worst_portfolio["pnl"]) if worst_portfolio["id"] else None
+                        }
+                    }
+                }
+        except Exception as e:
+            logger.error(f"Error getting global stats: {e}", exc_info=True)
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to get global stats: {str(e)}"
+            )
+
+    async def get_open_positions(self, service_factory: ServiceFactory, trading_state: TradingStateManager) -> dict:
+        """
+        Get all open positions across all portfolios.
+        """
+        try:
+            all_positions = []
+            portfolio_manager = service_factory.create_portfolio_manager()
+            
+            async with portfolio_manager:
+                portfolios = await portfolio_manager._storage.list_portfolios()
+                
+                for portfolio_info in portfolios:
+                    portfolio_id = portfolio_info.get("id")
+                    try:
+                        positions = await portfolio_manager.get_positions(portfolio_id)
+                        for position in positions:
+                            pos_dict = position.to_dict()
+                            pos_dict["portfolio_id"] = portfolio_id
+                            all_positions.append(pos_dict)
+                    except Exception:
+                        pass
+            
+            return {
+                "status": "success",
+                "positions": all_positions
+            }
+        except Exception as e:
+            logger.error(f"Error getting open positions: {e}", exc_info=True)
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to get open positions: {str(e)}"
+            )

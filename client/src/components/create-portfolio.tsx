@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -19,7 +19,11 @@ interface TraderFormData {
   params: Record<string, any>
 }
 
-export function CreatePortfolio() {
+interface CreatePortfolioProps {
+  onSuccess?: () => void
+}
+
+export function CreatePortfolio({ onSuccess }: CreatePortfolioProps = {}) {
   const [strategies, setStrategies] = useState<Strategy[]>([])
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
@@ -197,15 +201,16 @@ export function CreatePortfolio() {
       })
       console.log("Portfolio created:", response)
       
-      // Reset form after 2 seconds
-            setTimeout(() => {
-              setPortfolioName("")
-              setPortfolioId("")
-              setCapital("10000")
-              setAdapters({ exchange: "", stream: "", order: "", portfolio_storage: "" })
-              setTraders([{ symbol: "BTCUSDT", interval: "H1", strategy: "", params: {} }])
-              setSuccess(false)
-            }, 2000)
+      // Reset form after 1.5 seconds and call onSuccess
+      setTimeout(() => {
+        setPortfolioName("")
+        setPortfolioId("")
+        setCapital("10000")
+        setAdapters({ exchange: "", stream: "", order: "", portfolio_storage: "" })
+        setTraders([{ symbol: "BTCUSDT", interval: "H1", strategy: "", params: {} }])
+        setSuccess(false)
+        onSuccess?.()
+      }, 1500)
     } catch (error) {
       console.error("Failed to create portfolio:", error)
       toast.error("Failed to create portfolio", {
@@ -218,23 +223,14 @@ export function CreatePortfolio() {
 
   if (loading) {
     return (
-      <Card>
-        <CardContent className="p-6">
-          <div className="flex items-center justify-center">
-            <Loader2 className="h-6 w-6 animate-spin" />
-          </div>
-        </CardContent>
-      </Card>
+      <div className="flex items-center justify-center p-4">
+        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+      </div>
     )
   }
 
   return (
-    <Card className="relative" style={{ isolation: 'isolate' }}>
-      <CardHeader>
-        <CardTitle>Create Trading Portfolio</CardTitle>
-        <CardDescription>Configure your portfolio with traders and strategies</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
+    <div className="space-y-4">
         {/* Portfolio Info */}
         <div className="space-y-4">
           <div>
@@ -460,8 +456,7 @@ export function CreatePortfolio() {
             "Create Portfolio"
           )}
         </Button>
-      </CardContent>
-    </Card>
+    </div>
   )
 }
 

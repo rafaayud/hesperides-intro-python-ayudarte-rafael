@@ -246,6 +246,29 @@ class PortfolioManager:
         if self._portfolio is None:
             return []
         return self._portfolio.trades(trader_id)
+
+    async def get_positions(self, portfolio_id: str) -> List[Position]:
+        """Get all open positions for a portfolio from storage."""
+        positions_data = await self._storage.get_open_positions(portfolio_id)
+        positions = []
+        for pos_data in positions_data:
+            try:
+                position = Position(
+                    symbol=Symbol(pos_data["symbol"]),
+                    side=Side(pos_data["side"]),
+                    entry_price=Price(pos_data["entry_price"]),
+                    quantity=Quantity(pos_data["quantity"]),
+                    entry_time=Timestamp(pos_data["entry_time"]),
+                    status=TradeStatus.EXECUTED
+                )
+                positions.append(position)
+            except Exception as e:
+                logger.warning(f"Could not parse position: {e}")
+        return positions
+
+    async def delete_portfolio(self, portfolio_id: str) -> None:
+        """Delete a portfolio from the database."""
+        await self._storage.delete_portfolio(portfolio_id)
     
     # ============ Context Manager ============
     
@@ -254,3 +277,14 @@ class PortfolioManager:
     
     async def disconnect(self) -> None:
         await self._storage.disconnect()
+    
+    # ============ Context Manager ============
+    
+    async def __aenter__(self) -> "PortfolioManager":
+        """Enter the context manager"""
+        await self.connect()
+        return self
+    
+    async def __aexit__(self, exc_type, exc_value, traceback) -> None:
+        """Exit the context manager"""
+        await self.disconnect()
