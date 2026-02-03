@@ -24,6 +24,12 @@ import {
 import { CRYPTO_PAIRS, TIMEFRAME_LABELS } from "@/lib/trading-data"
 import { createChart, type IChartApi, type ISeriesApi, type CandlestickData, type UTCTimestamp } from "lightweight-charts"
 
+// Helper para convertir UTC timestamp a timestamp local
+function utcToLocal(utcTimestamp: number): number {
+  const offsetSeconds = new Date().getTimezoneOffset() * 60
+  return utcTimestamp - offsetSeconds
+}
+
 export function BacktestPanel() {
   // Form state
   const [strategies, setStrategies] = useState<Strategy[]>([])
@@ -144,9 +150,9 @@ export function BacktestPanel() {
     
     candleSeriesRef.current = candleSeries
     
-    // Set candle data
+    // Set candle data (convert UTC to local time)
     const candleData: CandlestickData[] = result.candles.map(c => ({
-      time: c.time as UTCTimestamp,
+      time: utcToLocal(c.time) as UTCTimestamp,
       open: c.open,
       high: c.high,
       low: c.low,
@@ -155,19 +161,19 @@ export function BacktestPanel() {
     
     candleSeries.setData(candleData)
     
-    // Set trade markers if available
+    // Set trade markers if available (also convert to local time)
     if (result.trades && result.trades.length > 0) {
       const markers = result.trades.flatMap(trade => {
-        const entryTime = typeof trade.entry_time === 'string' 
+        const entryTimeUtc = typeof trade.entry_time === 'string' 
           ? Math.floor(new Date(trade.entry_time).getTime() / 1000)
           : trade.entry_time
-        const exitTime = typeof trade.exit_time === 'string'
+        const exitTimeUtc = typeof trade.exit_time === 'string'
           ? Math.floor(new Date(trade.exit_time).getTime() / 1000)
           : trade.exit_time
         
         return [
           {
-            time: entryTime as UTCTimestamp,
+            time: utcToLocal(entryTimeUtc) as UTCTimestamp,
             position: 'belowBar' as const,
             color: '#16c784',
             shape: 'arrowUp' as const,
@@ -175,7 +181,7 @@ export function BacktestPanel() {
             size: 1,
           },
           {
-            time: exitTime as UTCTimestamp,
+            time: utcToLocal(exitTimeUtc) as UTCTimestamp,
             position: 'aboveBar' as const,
             color: '#ea3943',
             shape: 'arrowDown' as const,

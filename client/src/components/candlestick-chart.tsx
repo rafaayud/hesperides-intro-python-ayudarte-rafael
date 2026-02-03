@@ -55,12 +55,40 @@ function convertIntervalToBackendFormat(interval: string): string {
   return intervalMap[interval.toLowerCase()] || interval.toUpperCase();
 }
 
-// Helper para convertir UTC timestamp a timestamp local (para que las etiquetas muestren hora local)
-function utcToLocal(utcTimestamp: number): number {
-  // getTimezoneOffset() devuelve minutos, con signo invertido
-  // En España UTC+1: getTimezoneOffset() = -60
-  const offsetSeconds = new Date().getTimezoneOffset() * 60;
-  return utcTimestamp - offsetSeconds;
+// Helper para parsear string ISO como UTC explícitamente
+// Si el string no tiene 'Z' o offset de timezone, lo trata como UTC
+// IMPORTANTE: Siempre parsea como UTC, nunca como hora local
+function parseAsUTC(isoString: string): number {
+  const trimmed = isoString.trim();
+  
+  // Check if it already has timezone info
+  const hasTimezone = trimmed.endsWith('Z') || trimmed.match(/[+-]\d{2}:?\d{2}$/);
+  
+  if (hasTimezone) {
+    // Already has timezone, parse directly
+    return new Date(trimmed).getTime() / 1000;
+  }
+  
+  // No timezone info - parse manually as UTC to avoid local timezone interpretation
+  // Format: "2026-02-03T15:00:00" or "2026-02-03 15:00:00"
+  const match = trimmed.match(/(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?/);
+  if (match) {
+    const [, year, month, day, hour, minute, second, millis] = match;
+    // Parse as UTC explicitly
+    const utcDate = new Date(Date.UTC(
+      parseInt(year), 
+      parseInt(month) - 1, 
+      parseInt(day), 
+      parseInt(hour), 
+      parseInt(minute), 
+      parseInt(second || '0'),
+      parseInt(millis || '0')
+    ));
+    return utcDate.getTime() / 1000;
+  }
+  
+  // Fallback: try with 'Z' appended
+  return new Date(trimmed + 'Z').getTime() / 1000;
 }
 
 export function TradingViewChart({ symbol, interval, portfolioId, traderId, onPriceUpdate }: ChartProps) {
@@ -157,46 +185,53 @@ export function TradingViewChart({ symbol, interval, portfolioId, traderId, onPr
       },
     })
 
-    const fetchHistoricalData = async () => {
+    const fetchHistoricalData = async (retryCount = 0) => {
+      const MAX_RETRIES = 3;
+      const RETRY_DELAY = 1000; // 1 second
+      
       try {
         // Convertir formato de intervalo al formato del backend
         const backendInterval = convertIntervalToBackendFormat(interval);
         
-        console.log(`[Chart] Syncing ${symbol}/${backendInterval}...`);
+        console.log(`[Chart] Loading ${symbol}/${backendInterval} (attempt ${retryCount + 1})...`);
         
         // Sincronizar Binance -> Postgres
-        const syncResponse = await fetch(`http://localhost:8000/candles/sync`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ symbols: [symbol], intervals: [backendInterval] })
-        });
-
-        if (!syncResponse.ok) {
-          const errorText = await syncResponse.text();
-          throw new Error(`Sync failed: ${syncResponse.status} - ${errorText}`);
+        const { syncCandles, getCandles } = await import('@/lib/api');
+        
+        try {
+          console.log(`[Chart] Starting sync for ${symbol}/${backendInterval}...`);
+          const syncResult = await syncCandles([symbol], [backendInterval]);
+          console.log(`[Chart] Sync completed successfully:`, syncResult);
+        } catch (syncError: any) {
+          console.error(`[Chart] Sync failed:`, syncError);
+          console.warn(`[Chart] Continuing anyway - data might already exist in DB`);
+          // Continue anyway - data might already exist
         }
-
-        const syncResult = await syncResponse.json();
-        console.log(`[Chart] Sync completed:`, syncResult);
     
         // Leer Postgres -> Frontend
         console.log(`[Chart] Fetching historical data for ${symbol}/${backendInterval}...`);
-        const response = await fetch(`http://localhost:8000/candles/${symbol}/${backendInterval}?limit=10000`);
-        
-        if (!response.ok) {
-          throw new Error(`Failed to fetch candles: ${response.status}`);
+        const result = await getCandles(symbol, backendInterval);
+        console.log(`[Chart] Received ${result.candles?.length || 0} candles`);
+        if (result.candles && result.candles.length > 0) {
+          console.log(`[Chart] First candle:`, result.candles[0]);
+          console.log(`[Chart] Last candle:`, result.candles[result.candles.length - 1]);
         }
         
-        const result = await response.json();
-        console.log(`[Chart] Received ${result.candles?.length || 0} candles`);
+        // If no candles and we can retry, wait and try again
+        if ((!result.candles || result.candles.length === 0) && retryCount < MAX_RETRIES) {
+          console.log(`[Chart] No candles received, retrying in ${RETRY_DELAY}ms...`);
+          await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
+          return fetchHistoricalData(retryCount + 1);
+        }
         
         // Fetch trade markers if portfolioId and traderId are provided
         let tradeMarkers: TradeMarker[] = [];
         if (portfolioId && traderId) {
           try {
             console.log(`[Chart] Fetching trade markers for ${portfolioId}/${traderId}...`);
+            const apiBaseUrl = (import.meta as any).env?.VITE_API_URL || 'http://localhost:8000/api';
             const tradesResponse = await fetch(
-              `http://localhost:8000/api/portfolio/trades/${portfolioId}?trader_id=${traderId}&limit=500`
+              `${apiBaseUrl}/portfolio/trades/${portfolioId}?trader_id=${traderId}&limit=500`
             );
             if (tradesResponse.ok) {
               const tradesResult = await tradesResponse.json();
@@ -211,12 +246,12 @@ export function TradingViewChart({ symbol, interval, portfolioId, traderId, onPr
                 
                 // Entry marker (BUY)
                 if (trade.entry_time) {
-                  // Convert to local timestamp (same as candles)
-                  const entryTimeUtc = Math.floor(new Date(trade.entry_time).getTime() / 1000);
-                  const entryTime = utcToLocal(entryTimeUtc);
-                  console.log(`[Chart] Trade ${idx}: Entry at ${trade.entry_time} -> ${entryTime} (local)`);
+                  // Parse as UTC and adjust for lightweight-charts local time interpretation
+                  const utcEntryTime = parseAsUTC(trade.entry_time);
+                  const timezoneOffsetSeconds = -new Date().getTimezoneOffset() * 60;
+                  const entryTime = utcEntryTime + timezoneOffsetSeconds;
                   markers.push({
-                    time: entryTime,
+                    time: entryTime as UTCTimestamp,
                     position: 'belowBar',
                     color: '#16c784',
                     shape: 'arrowUp',
@@ -225,7 +260,7 @@ export function TradingViewChart({ symbol, interval, portfolioId, traderId, onPr
                     id: `trade-${idx}-entry`
                   });
                   
-                  // Store trade data for tooltip
+                  // Store trade data for tooltip (use UTC timestamp)
                   const entryData: TradeData = {
                     time: entryTime,
                     type: 'entry',
@@ -241,12 +276,13 @@ export function TradingViewChart({ symbol, interval, portfolioId, traderId, onPr
                 
                 // Exit marker (SELL)
                 if (trade.exit_time) {
-                  const exitTimeUtc = Math.floor(new Date(trade.exit_time).getTime() / 1000);
-                  const exitTime = utcToLocal(exitTimeUtc);
+                  // Parse as UTC and adjust for lightweight-charts local time interpretation
+                  const utcExitTime = parseAsUTC(trade.exit_time);
+                  const timezoneOffsetSeconds = -new Date().getTimezoneOffset() * 60;
+                  const exitTime = utcExitTime + timezoneOffsetSeconds;
                   const pnl = trade.pnl || 0;
-                  console.log(`[Chart] Trade ${idx}: Exit at ${trade.exit_time} -> ${exitTime} (local), PnL: ${pnl}`);
                   markers.push({
-                    time: exitTime,
+                    time: exitTime as UTCTimestamp,
                     position: 'aboveBar',
                     color: '#ea3943',
                     shape: 'arrowDown',
@@ -299,19 +335,25 @@ export function TradingViewChart({ symbol, interval, portfolioId, traderId, onPr
             
             // Opción 1: timestamp.timestamp (si viene como objeto Timestamp)
             if (c.timestamp?.timestamp) {
-              timestamp = new Date(c.timestamp.timestamp).getTime() / 1000;
+              timestamp = parseAsUTC(c.timestamp.timestamp);
             }
             // Opción 2: timestamp (si viene como string ISO)
             else if (c.timestamp) {
-              timestamp = new Date(c.timestamp).getTime() / 1000;
+              timestamp = parseAsUTC(c.timestamp);
             }
-            // Opción 3: open_time (formato ISO string)
+            // Opción 3: open_time (formato ISO string) - este es el formato principal
             else if (c.open_time) {
-              timestamp = new Date(c.open_time).getTime() / 1000;
+              // Parse as UTC first
+              const utcTimestamp = parseAsUTC(c.open_time);
+              // lightweight-charts interprets timestamps as local time, so we need to adjust
+              // Get timezone offset in seconds (negative means ahead of UTC)
+              const timezoneOffsetSeconds = -new Date().getTimezoneOffset() * 60;
+              // Add offset so lightweight-charts displays it correctly
+              timestamp = utcTimestamp + timezoneOffsetSeconds;
             }
             // Opción 4: time (formato ISO string)
             else if (c.time) {
-              timestamp = new Date(c.time).getTime() / 1000;
+              timestamp = parseAsUTC(c.time);
             }
 
             // Validar que el timestamp sea válido
@@ -334,8 +376,10 @@ export function TradingViewChart({ symbol, interval, portfolioId, traderId, onPr
             // Obtener volumen
             const volume = typeof c.volume === 'object' && c.volume?.value ? parseFloat(c.volume.value) : parseFloat(c.volume || 0);
 
+            // Keep timestamps in UTC to avoid DST issues
+            // lightweight-charts will display them in local time via localization
             return {
-              time: utcToLocal(timestamp) as UTCTimestamp,
+              time: timestamp as UTCTimestamp,
               open,
               high,
               low,
@@ -350,11 +394,55 @@ export function TradingViewChart({ symbol, interval, portfolioId, traderId, onPr
           console.error("No valid candles found after formatting");
           return;
         }
-    
-        candlestickSeries.setData(formattedData.map(({ volume, ...rest }) => rest));
+        
+        // Remove duplicate timestamps and ensure strict ascending order
+        // This is critical for lightweight-charts which requires strict ascending order
+        const uniqueData: any[] = [];
+        const seen = new Set<number>();
+        let duplicateCount = 0;
+        let orderViolations = 0;
+        
+        for (let i = 0; i < formattedData.length; i++) {
+          const candle = formattedData[i];
+          if (!candle) continue;
+          
+          let time: number = candle.time;
+          const originalTime = time;
+          
+          // If duplicate, increment by 1 second until unique
+          if (seen.has(time)) {
+            duplicateCount++;
+            while (seen.has(time)) {
+              time = time + 1;
+            }
+          }
+          
+          // Ensure strict ascending order
+          if (uniqueData.length > 0 && time <= uniqueData[uniqueData.length - 1].time) {
+            orderViolations++;
+            time = uniqueData[uniqueData.length - 1].time + 1;
+          }
+          
+          seen.add(time);
+          uniqueData.push({ ...candle, time: time as UTCTimestamp });
+        }
+        
+        if (duplicateCount > 0 || orderViolations > 0) {
+          console.warn(`[Chart] Fixed ${duplicateCount} duplicate timestamps and ${orderViolations} order violations`);
+        }
+        console.log(`[Chart] Filtered ${formattedData.length} -> ${uniqueData.length} unique candles (strictly ordered)`);
+        
+        // Ensure series are ready before setting data
+        if (!candlestickSeries) {
+          console.error("[Chart] Candlestick series not ready");
+          return;
+        }
+        
+        console.log(`[Chart] Setting ${uniqueData.length} candles to chart`);
+        candlestickSeries.setData(uniqueData.map(({ volume, ...rest }) => rest));
 
-        // Preparar datos de volumen para la serie de histograma
-        const volumeData = formattedData.map((candle) => ({
+        // Preparar datos de volumen para la serie de histograma (usar datos únicos)
+        const volumeData = uniqueData.map((candle) => ({
           time: candle.time,
           value: candle.volume,
           color: candle.close >= candle.open ? '#16c78480' : '#ea394380',
@@ -366,9 +454,9 @@ export function TradingViewChart({ symbol, interval, portfolioId, traderId, onPr
 
         // Apply trade markers if available
         if (tradeMarkers.length > 0 && candleSeriesRef.current) {
-          // Get all candle times as a set for quick lookup
-          const candleTimes = new Set(formattedData.map(c => c.time));
-          const candleTimesArray = formattedData.map(c => c.time).sort((a, b) => a - b);
+          // Get all candle times as a set for quick lookup (use uniqueData)
+          const candleTimes = new Set(uniqueData.map(c => c.time));
+          const candleTimesArray = uniqueData.map(c => c.time).sort((a, b) => a - b);
           
           // Log time ranges for debugging
           const candleStart = new Date(candleTimesArray[0] * 1000).toISOString();
@@ -454,18 +542,23 @@ export function TradingViewChart({ symbol, interval, portfolioId, traderId, onPr
         }
 
         // Si hay datos históricos, actualizamos el precio inicial en la App
-        if (formattedData.length > 0 && onPriceUpdate) {
-          const lastCandle = formattedData[formattedData.length - 1];
+        if (uniqueData.length > 0 && onPriceUpdate) {
+          const lastCandle = uniqueData[uniqueData.length - 1];
           const isUp = lastCandle.close >= lastCandle.open;
           onPriceUpdate(lastCandle.close, isUp);
         }
 
       } catch (error) {
-        console.error("Error cargando histórico:", error);
+        console.error(`[Chart] Error loading data (attempt ${retryCount + 1}):`, error);
+        
+        // Retry on error
+        if (retryCount < MAX_RETRIES) {
+          console.log(`[Chart] Retrying in ${RETRY_DELAY}ms...`);
+          await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
+          return fetchHistoricalData(retryCount + 1);
+        }
       }
     };
-
-    fetchHistoricalData()
 
     // Subscribe to crosshair move for trade tooltips
     const handleCrosshairMove = (param: MouseEventParams) => {
@@ -503,7 +596,26 @@ export function TradingViewChart({ symbol, interval, portfolioId, traderId, onPr
 
     window.addEventListener('resize', handleResize);
 
+    // Load data - ensure chart and series are ready
+    // For initial load, wait a bit for backend to be ready
+    // For interval changes, load immediately
+    const loadData = () => {
+      // Double-check series are ready
+      if (!candlestickSeries || !volumeSeriesRef.current) {
+        console.warn("[Chart] Series not ready, retrying...");
+        setTimeout(loadData, 100);
+        return;
+      }
+      console.log("[Chart] Loading historical data...");
+      fetchHistoricalData();
+    };
+    
+    // Small delay on initial load to ensure backend is ready in Docker
+    const initialDelay = 500;
+    const timer = setTimeout(loadData, initialDelay);
+
     return () => {
+      clearTimeout(timer);
       window.removeEventListener('resize', handleResize);
       chart.unsubscribeCrosshairMove(handleCrosshairMove);
       chart.remove();
@@ -516,18 +628,23 @@ export function TradingViewChart({ symbol, interval, portfolioId, traderId, onPr
   // EFECTO 2: WebSocket para tiempo real
   useEffect(() => {
     const backendInterval = convertIntervalToBackendFormat(interval);
-    const socket = new WebSocket(`ws://localhost:8000/live_candles/${symbol}/${backendInterval}`);
+    // Import dynamically to get the WebSocket URL
+    const apiUrl = (import.meta as any).env?.VITE_API_URL || 'http://localhost:8000/api';
+    const wsUrl = (apiUrl.replace('/api', '').replace('http://', 'ws://') || 'ws://localhost:8000') + `/live_candles/${symbol}/${backendInterval}`;
+    const socket = new WebSocket(wsUrl);
   
     socket.onmessage = (event) => {
       const data = JSON.parse(event.data);
       const c = data.candle;
   
-      // Convertir a hora local para consistencia con las velas históricas
-      const utcTime = Math.floor(new Date(c.open_time).getTime() / 1000);
-      const localTime = utcToLocal(utcTime);
+      // Parse as UTC first
+      const utcTime = parseAsUTC(c.open_time);
+      // lightweight-charts interprets timestamps as local time, so we need to adjust
+      const timezoneOffsetSeconds = -new Date().getTimezoneOffset() * 60;
+      const adjustedTime = utcTime + timezoneOffsetSeconds;
       
       const liveCandle = {
-        time: localTime as UTCTimestamp, 
+        time: adjustedTime as UTCTimestamp, 
         open: c.open, 
         high: c.high, 
         low: c.low, 
@@ -541,7 +658,7 @@ export function TradingViewChart({ symbol, interval, portfolioId, traderId, onPr
       // Actualizar volumen en tiempo real
       if (volumeSeriesRef.current && c.volume !== undefined) {
         const volumeUpdate = {
-          time: localTime as UTCTimestamp,
+          time: adjustedTime as UTCTimestamp,
           value: c.volume,
           color: c.close >= c.open ? '#16c78480' : '#ea394380',
         };

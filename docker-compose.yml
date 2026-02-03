@@ -1,23 +1,74 @@
 # docker-compose.yml
+# Trading Platform - Docker Compose Configuration
+# 
+# Servicios:
+#   - postgres: Base de datos PostgreSQL 16
+#   - trading_app: API FastAPI
+#   - frontend: Cliente React/Vite
+#
+# Uso:
+#   docker compose up --build
+#   docker compose down -v  (para limpiar volúmenes)
+
 services:
+  # ==========================================================================
+  # PostgreSQL Database
+  # ==========================================================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: trading_postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-trading}
+    ports:
+      - "5432:5432"  # Expuesto para debugging local
+    volumes:
+      - ./docker/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      # NO usamos volumen persistente - se reinicia limpio cada vez
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-trading}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - trading_internal
+
+  # ==========================================================================
+  # FastAPI Backend
+  # ==========================================================================
   trading_app:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: trading_app
     environment:
-      # Tu app usa DATABASE_URL en config.py
-      # Conecta al PostgreSQL existente (postgres-trading) usando la red compartida
-      DATABASE_URL: postgresql://postgres:1234@postgres-trading:5432/postgres
+      # Database
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-trading}
+      PYTHONPATH: /app/server
+      # Binance API (Paper Trading) - Optional, loaded from .env
+      BINANCE_API_KEY: ${BINANCE_API_KEY:-}
+      BINANCE_SECRET_KEY: ${BINANCE_SECRET_KEY:-}
+      BINANCE_TESTNET: ${BINANCE_TESTNET:-true}
     ports:
       - "8000:8000"
     volumes:
       # Hot reload en desarrollo
       - ./server:/app/server
+      # Mount .env for secrets (optional)
+      - ./.env:/app/.env:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
     restart: unless-stopped
     networks:
-      - trading_network
+      - trading_internal
 
+  # ==========================================================================
+  # React/Vite Frontend
+  # ==========================================================================
   frontend:
     image: node:20-alpine
     container_name: trading_frontend
@@ -34,9 +85,12 @@ services:
       - trading_app
     restart: unless-stopped
     networks:
-      - trading_network
+      - trading_internal
 
+# ==========================================================================
+# Networks
+# ==========================================================================
 networks:
-  trading_network:
-    external: true
-    name: trading_network
+  trading_internal:
+    driver: bridge
+    name: trading_internal

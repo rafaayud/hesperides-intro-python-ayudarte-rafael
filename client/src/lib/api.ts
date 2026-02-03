@@ -419,3 +419,56 @@ export async function getOpenPositions(): Promise<OpenPositionsResponse> {
   }
 }
 
+// ============ Candles ============
+
+// Base URL for candles (no /api prefix)
+const CANDLES_BASE_URL = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:8000'
+
+export interface Candle {
+  symbol: string
+  interval: string
+  open_time: string
+  open: number | { value: number }
+  high: number | { value: number }
+  low: number | { value: number }
+  close: number | { value: number }
+  volume: number | { value: number }
+}
+
+export interface CandlesResponse {
+  candles: Candle[]
+}
+
+// Sync candles from Binance to database
+export async function syncCandles(symbols: string[], intervals: string[]): Promise<{ status: string }> {
+  const response = await fetch(`${CANDLES_BASE_URL}/candles/sync`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ symbols, intervals })
+  })
+  
+  if (!response.ok) {
+    const errorText = await response.text()
+    throw new Error(`Sync failed: ${response.status} - ${errorText}`)
+  }
+  
+  return await response.json()
+}
+
+// Get historical candles from database
+export async function getCandles(symbol: string, interval: string, limit: number = 10000): Promise<CandlesResponse> {
+  const response = await fetch(`${CANDLES_BASE_URL}/candles/${symbol}/${interval}?limit=${limit}`)
+  
+  if (!response.ok) {
+    throw new Error(`Failed to fetch candles: ${response.status}`)
+  }
+  
+  return await response.json()
+}
+
+// Get WebSocket URL for live candles
+export function getWebSocketUrl(symbol: string, interval: string): string {
+  const wsBase = CANDLES_BASE_URL.replace('http://', 'ws://').replace('https://', 'wss://')
+  return `${wsBase}/live_candles/${symbol}/${interval}`
+}
+

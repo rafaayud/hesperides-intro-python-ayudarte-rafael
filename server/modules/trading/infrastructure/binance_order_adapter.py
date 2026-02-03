@@ -3,11 +3,16 @@ Binance Order Adapter - Executes MARKET orders via REST API.
 
 Uses Binance Testnet for paper trading.
 Testnet URL: https://testnet.binance.vision
+
+API Keys:
+  - Set in .env file as BINANCE_API_KEY and BINANCE_SECRET_KEY
+  
 """
 import logging
 import os
 from datetime import datetime
 from decimal import Decimal
+from typing import Optional
 
 from dotenv import load_dotenv
 from binance import AsyncClient
@@ -19,12 +24,10 @@ from ..domain.entities import OrderResponse
 from ..domain.value_objects import Symbol, Price, Quantity, Timestamp, TradeStatus, Side
 from ..domain.utils.decorators import timed_async
 
+# Load .env file
 env_path = Path(__file__).resolve().parents[4] / ".env"
-
-# 2. Intentamos cargar
 load_dotenv(dotenv_path=env_path)
 
-# ---------------------------
 logger = logging.getLogger(__name__)
 
 
@@ -36,9 +39,15 @@ class BinanceOrderAdapter(OrderPort, metaclass=AdapterMeta):
     No WebSocket needed - simple REST calls.
     """
     
-    def __init__(self, testnet: bool = True) -> None:
-        self._api_key = os.getenv("BINANCE_API_KEY")
-        self._api_secret = os.getenv("BINANCE_SECRET_KEY")
+    def __init__(
+        self, 
+        testnet: bool = True,
+        api_key: Optional[str] = None,
+        api_secret: Optional[str] = None
+    ) -> None:
+        # Load from params, env vars, or .env (in order of priority)
+        self._api_key = api_key or os.getenv("BINANCE_API_KEY")
+        self._api_secret = api_secret or os.getenv("BINANCE_SECRET_KEY")
         self._testnet = testnet
         self._client: AsyncClient | None = None
         
