@@ -38,6 +38,11 @@ class PortfolioController:
                 "description": "Moving Average Crossover: Buy when fast MA crosses above slow MA",
                 "display_name": "Moving Average Cross"
             },
+            "mean_cross_take_profit": {
+                "name": "mean_cross_take_profit",
+                "description": "Moving Average Crossover with Take Profit: Buy when fast MA crosses above slow MA, sell on death cross or take profit",
+                "display_name": "MA Cross with Take Profit"
+            },
             "momentum": {
                 "name": "momentum",
                 "description": "Momentum strategy based on price change percentage",
@@ -84,7 +89,16 @@ class PortfolioController:
             },
             "mean_cross": {
                 "common_params": [
-                    {"name": "execution_mode", "type": "string", "default": "ON_CLOSE", "description": "When to execute trades", "enum": ["ON_CLOSE", "ON_TICK"]}
+                    {"name": "execution_mode", "type": "readonly", "default": "ON_CLOSE", "description": "When to execute trades"}
+                ],
+                "specific_params": [
+                    {"name": "slow_period", "type": "number", "default": 50, "description": "Period for slow moving average"},
+                    {"name": "fast_period", "type": "number", "default": 10, "description": "Period for fast moving average"}
+                ]
+            },
+            "mean_cross_take_profit": {
+                "common_params": [
+                    {"name": "execution_mode", "type": "readonly", "default": "ON_CLOSE", "description": "When to execute trades"}
                 ],
                 "specific_params": [
                     {"name": "slow_period", "type": "number", "default": 50, "description": "Period for slow moving average"},

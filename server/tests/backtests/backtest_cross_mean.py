@@ -16,7 +16,7 @@ from dataclasses import dataclass
 
 from modules.trading.application.services.backtest_service import BacktestService
 from modules.trading.domain.value_objects import Symbol, Interval, Candle_static
-from modules.trading.domain.strategies.mean_cross_backtest import MeanCrossBacktest
+from modules.trading.domain.strategies.mean_cross_take_profit import MeanCrossTakeProfit
 
 from modules.trading.infrastructure.postgre_adapter import PostgresAdapter
 from modules.trading.infrastructure.binance_adapter import BinanceAdapter
@@ -71,7 +71,7 @@ def run_single_backtest(config: BacktestConfig) -> Dict:
     try:
         # Crear estrategia
         tp_config = {config.interval: config.take_profit}
-        strategy = MeanCrossBacktest(
+        strategy = MeanCrossTakeProfit(
             slow_period=config.slow_period,
             fast_period=config.fast_period,
             take_profit=tp_config

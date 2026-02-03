@@ -9,6 +9,7 @@ from modules.trading.domain.strategies.mean_cross import MeanCross
 from modules.trading.domain.strategies.momentum import Momentum
 from modules.trading.domain.strategies.candle_pattern import CandlePatternStrategy
 from modules.trading.domain.strategies.mock_strategy import MockStrategy
+from modules.trading.domain.strategies.mean_cross_take_profit import MeanCrossTakeProfit
 from modules.trading.domain.value_objects import ExecutionMode
 from typing import Any, Dict, Callable
 
@@ -20,7 +21,8 @@ class StrategyFactory:
         "mock_strategy": MockStrategy,
         "mean_cross": MeanCross,
         "momentum": Momentum,
-        "candle_pattern": CandlePatternStrategy
+        "candle_pattern": CandlePatternStrategy,
+        "mean_cross_take_profit": MeanCrossTakeProfit
     }
 
     @classmethod
@@ -115,6 +117,7 @@ class StrategyFactory:
         "mean_cross": "_build_mean_cross_kwargs",
         "momentum": "_build_momentum_kwargs",
         "candle_pattern": "_build_candle_pattern_kwargs",
+        "mean_cross_take_profit": "_build_mean_cross_kwargs",
     }
 
     @classmethod

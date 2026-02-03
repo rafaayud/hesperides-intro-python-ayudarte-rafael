@@ -5,19 +5,21 @@ from typing import List
 from ..value_objects import Interval
 
 
-class MeanCrossBacktest(Strategy):
+class MeanCrossTakeProfit(Strategy):
     """Mean Cross Strategy: Buy if the fast moving average crosses the slow moving average from below, and sell if it crosses from above."""
     
-    def __init__(self, slow_period: int=50, fast_period: int=10, mode: ExecutionMode = ExecutionMode.ON_CLOSE, take_profit: dict[str, float] = {Interval.M1: 0.005,   # 0.5%
-    Interval.M5: 0.01,    # 1%
-    Interval.M15: 0.015,  # 1.5%
-    Interval.H1: 0.02,   # 2%
-    Interval.H4: 0.04, Interval.D1: 0.08}) -> None:
+    def __init__(self, slow_period: int=50, fast_period: int=10, mode: ExecutionMode = ExecutionMode.ON_CLOSE) -> None:
 
         super().__init__(name=f"MA Cross ({fast_period}/{slow_period})", min_candles=slow_period+1, mode=mode)
         self._slow_period = slow_period
         self._fast_period = fast_period
-        self._take_profit = take_profit
+        self._take_profit = {Interval.M1: 0.005,  
+                             Interval.M5: 0.005,
+                             Interval.M15: 0.015,
+                             Interval.H1: 0.02,
+                             Interval.H4: 0.03,
+                             Interval.D1: 0.035}
+
         self._entry_price = None
 
     @timed
@@ -39,7 +41,9 @@ class MeanCrossBacktest(Strategy):
         if fast_ma > slow_ma and prev_fast <= prev_slow:
             self._entry_price = float(candles[-1].close.value)
             return Signal.BUY
+
         elif (fast_ma < slow_ma and prev_fast >= prev_slow) or (self._entry_price is not None and float(candles[-1].close.value) >= self._entry_price * (1 + self._take_profit[candles[-1].interval])):
+            self._entry_price = None
             return Signal.SELL
         
         return Signal.HOLD
