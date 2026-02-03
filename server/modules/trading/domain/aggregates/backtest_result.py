@@ -10,7 +10,7 @@ Invariants:
 """
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Tuple
+from typing import Tuple, Dict
 
 from ..value_objects import Symbol, Interval, PnL
 from ..entities import Trade
@@ -110,6 +110,35 @@ class BacktestResult:
     def is_profitable(self) -> bool:
         """True if the backtest was profitable."""
         return self.total_pnl.is_positive
+
+    def _serialize_trade(self, trade: Trade) -> Dict:
+        """Serialize a single trade for JSON response"""
+        return {
+            "entry_time": int(trade.entry_time.timestamp.timestamp()),
+            "exit_time": int(trade.exit_time.timestamp.timestamp()),
+            "entry_price": float(trade.entry_price.value),
+            "exit_price": float(trade.exit_price.value),
+            "quantity": float(trade.quantity.value),
+            "pnl": float(trade.pnl.value),
+            "pnl_percentage": round(trade.pnl_percentage, 2),
+        }
+
+    def to_dict(self) -> Dict:
+        return {
+            "symbol": str(self.symbol),
+            "interval": self.interval.value,
+            "strategy_name": self.strategy_name,
+            "initial_capital": self.initial_capital,
+            "final_capital": round(self.final_capital, 2),
+            "total_pnl": float(self.total_pnl.value),
+            "total_pnl_percentage": round(self.total_pnl_percentage, 2),
+            "total_trades": self.total_trades,
+            "total_winners": self.total_winners,
+            "total_losers": self.total_losers,
+            "win_rate": round(self.win_rate, 2),
+            "avg_pnl_per_trade": float(self.avg_pnl_per_trade.value),
+            "trades": [self._serialize_trade(t) for t in self.trades],
+        }
 
     def __str__(self) -> str:
         status = "✅" if self.is_profitable else "❌"

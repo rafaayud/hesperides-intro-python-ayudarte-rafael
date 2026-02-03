@@ -2,10 +2,11 @@
 
 import { useState, useCallback } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { BarChart3, Briefcase, Settings } from "lucide-react"
+import { BarChart3, Briefcase, FlaskConical } from "lucide-react"
 import { Header } from "./Header"
 import { TradingView } from "@/components/views/TradingView"
 import { PortfoliosView } from "@/components/views/PortfoliosView"
+import { BacktestPanel } from "@/components/backtest-panel"
 
 export type ChartConfig = {
   symbol: string
@@ -62,6 +63,13 @@ export function MainLayout() {
                   <Briefcase className="h-4 w-4" />
                   Portfolios
                 </TabsTrigger>
+                <TabsTrigger 
+                  value="backtest"
+                  className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground gap-2"
+                >
+                  <FlaskConical className="h-4 w-4" />
+                  Backtest
+                </TabsTrigger>
               </TabsList>
               
               {activeTab === "trading" && (
@@ -89,6 +97,10 @@ export function MainLayout() {
             
             <TabsContent value="portfolios" className="mt-0">
               <PortfoliosView onTraderSelect={handleTraderSelect} />
+            </TabsContent>
+            
+            <TabsContent value="backtest" className="mt-0 h-[calc(100%-60px)]">
+              <BacktestPanel />
             </TabsContent>
           </Tabs>
         </main>

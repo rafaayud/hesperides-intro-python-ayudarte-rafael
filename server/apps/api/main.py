@@ -8,7 +8,7 @@ from .registry import AdapterRegistry
 from .dependencies import setup_registry
 from .service_factory import ServiceFactory
 from .trading_state import TradingStateManager
-from .routers import candles, websocket, info, portfolio, trading
+from .routers import candles, websocket, info, portfolio, trading, backtest
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +42,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:5173"], 
+    allow_origins=["http://localhost:3000", "http://localhost:5173", "http://localhost:5174"], 
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -54,6 +54,7 @@ app.include_router(candles.router)
 app.include_router(websocket.router)
 app.include_router(portfolio.router, prefix="/api/portfolio")
 app.include_router(trading.router, prefix="/api/trading")
+app.include_router(backtest.router, prefix="/api/backtest")
 
 # Root endpoint
 @app.get("/")

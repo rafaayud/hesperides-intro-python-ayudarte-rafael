@@ -329,6 +329,70 @@ export async function getGlobalStats(): Promise<GlobalStats> {
   return data.stats || data
 }
 
+// ============ Backtest ============
+
+export interface BacktestRequest {
+  symbol: string
+  interval: string
+  strategy: string
+  strategy_params?: Record<string, any>
+  initial_capital: number
+}
+
+export interface BacktestTrade {
+  entry_time: string | number
+  exit_time: string | number
+  side: 'BUY' | 'SELL'
+  entry_price: number
+  exit_price: number
+  quantity?: number
+  pnl: number
+  pnl_percentage: number
+}
+
+export interface BacktestCandle {
+  time: number
+  open: number
+  high: number
+  low: number
+  close: number
+  volume: number
+}
+
+export interface BacktestResponse {
+  symbol: string
+  interval: string
+  strategy_name: string
+  initial_capital: number
+  final_capital: number
+  total_pnl: number
+  total_pnl_percentage: number
+  total_trades: number
+  total_winners: number
+  total_losers: number
+  win_rate: number
+  avg_pnl_per_trade: number
+  // Optional fields - backend needs update to provide these
+  trades?: BacktestTrade[]
+  candles?: BacktestCandle[]
+  equity_curve?: Array<{ time: number; value: number }>
+}
+
+export async function runBacktest(request: BacktestRequest): Promise<BacktestResponse> {
+  const response = await fetch(`${API_BASE_URL}/backtest`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request),
+  })
+  
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: response.statusText }))
+    throw new Error(error.detail || 'Failed to run backtest')
+  }
+  
+  return await response.json()
+}
+
 // Get all open positions
 export async function getOpenPositions(): Promise<OpenPositionsResponse> {
   const response = await fetch(`${API_BASE_URL}/portfolio/positions/open`)

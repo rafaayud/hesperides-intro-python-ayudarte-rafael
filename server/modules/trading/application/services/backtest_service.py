@@ -3,6 +3,7 @@ from ...domain.entities import Position, Trade
 from ...domain.aggregates.backtest_result import BacktestResult
 from ...domain.strategies.base import Strategy
 from ...domain.ports import StoragePort
+
 import logging
 from decimal import Decimal
 
@@ -66,7 +67,7 @@ class BacktestService:
                     side=Side.BUY,
                     entry_price=candle.close,
                     quantity=Quantity(quantity),
-                    entry_time=candle.timestamp,  # Candle_static usa .timestamp
+                    entry_time=candle.timestamp,  
                     target_quantity=Quantity(quantity),
                     status=TradeStatus.EXECUTED,
                 )

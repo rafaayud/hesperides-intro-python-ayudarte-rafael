@@ -5,6 +5,7 @@ from modules.trading.application.services.streaming_service import StreamingServ
 from modules.trading.application.services.data_storage_service import DataStorageService
 from modules.trading.application.services.trading_engine import TradingEngine
 from modules.trading.application.services.portfolio_manager import PortfolioManager
+from modules.trading.application.services.backtest_service import BacktestService
 from .config import Settings
 from .registry import AdapterRegistry
 
@@ -120,7 +121,21 @@ class ServiceFactory:
             order=self.registry.get_order(order),
             portfolio_manager=portfolio_manager
         )
-        
+
+    def create_backtest_service(self, storage: str | None = None) -> BacktestService:
+        """
+        Create a backtest service
+        Args:
+            storage: Storage to use
+        Returns:
+            BacktestService: Backtest service
+        """
+        if storage is None:
+            storage = self.settings.default_storage
+
+        return BacktestService(
+            storage=self.registry.get_storage(storage, database_url=self.settings.database_url)
+        )
 
 
 

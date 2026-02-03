@@ -3,14 +3,11 @@
 import { useEffect, useRef, useState } from "react"
 import { 
   createChart, 
-  ColorType, 
-  ISeriesApi, 
+  ColorType,
   UTCTimestamp,
-  CandlestickSeries,
-  HistogramSeries,
-  IChartApi,
-  MouseEventParams
+  CrosshairMode
 } from "lightweight-charts"
+import type { IChartApi, ISeriesApi, SeriesMarker, Time, MouseEventParams } from "lightweight-charts"
 
 // Interface for trade markers
 interface TradeMarker {
@@ -131,7 +128,7 @@ export function TradingViewChart({ symbol, interval, portfolioId, traderId, onPr
       },
     })
 
-    const candlestickSeries = chart.addSeries(CandlestickSeries, {
+    const candlestickSeries = chart.addCandlestickSeries({
       upColor: "#16c784", 
       downColor: "#ea3943", 
       borderVisible: false,
@@ -142,16 +139,12 @@ export function TradingViewChart({ symbol, interval, portfolioId, traderId, onPr
     candleSeriesRef.current = candlestickSeries
 
     // Añadir serie de volumen
-    const volumeSeries = chart.addSeries(HistogramSeries, {
+    const volumeSeries = chart.addHistogramSeries({
       color: "#26a69a",
       priceFormat: {
         type: 'volume',
       },
       priceScaleId: 'volume',
-      scaleMargins: {
-        top: 0.75,
-        bottom: 0.02,
-      },
     })
     
     volumeSeriesRef.current = volumeSeries
@@ -450,7 +443,8 @@ export function TradingViewChart({ symbol, interval, portfolioId, traderId, onPr
           }
           
           if (validMarkers.length > 0) {
-            candleSeriesRef.current.setMarkers(validMarkers as any);
+            // En lightweight-charts v4, setMarkers funciona directamente
+            candleSeriesRef.current.setMarkers(validMarkers as SeriesMarker<Time>[]);
             console.log(`[Chart] ✅ Applied ${validMarkers.length} markers to chart:`, validMarkers);
           } else {
             console.log(`[Chart] ⚠️ No valid markers to apply (all ${tradeMarkers.length} outside candle range)`);

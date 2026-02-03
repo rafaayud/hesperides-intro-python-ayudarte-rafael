@@ -147,6 +147,12 @@ export function CreatePortfolio({ onSuccess }: CreatePortfolioProps = {}) {
             </SelectContent>
           </Select>
         )
+      case 'readonly':
+        return (
+          <div className="h-9 px-3 py-2 rounded-md border bg-muted/50 text-sm text-muted-foreground flex items-center">
+            {param.default}
+          </div>
+        )
       default:
         return (
           <Input
