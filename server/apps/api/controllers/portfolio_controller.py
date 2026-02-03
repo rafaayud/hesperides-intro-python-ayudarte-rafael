@@ -522,18 +522,21 @@ class PortfolioController:
             
             async with portfolio_manager:
                 portfolios = await portfolio_manager._storage.list_portfolios()
+                logger.info(f"Found {len(portfolios)} portfolios for positions check")
                 
                 for portfolio_info in portfolios:
-                    portfolio_id = portfolio_info.get("id")
+                    portfolio_id = str(portfolio_info.get("id"))  # Ensure string
                     try:
                         positions = await portfolio_manager.get_positions(portfolio_id)
+                        logger.info(f"Portfolio {portfolio_id}: found {len(positions)} positions")
                         for position in positions:
                             pos_dict = position.to_dict()
                             pos_dict["portfolio_id"] = portfolio_id
                             all_positions.append(pos_dict)
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logger.error(f"Error getting positions for portfolio {portfolio_id}: {e}")
             
+            logger.info(f"Total open positions: {len(all_positions)}")
             return {
                 "status": "success",
                 "positions": all_positions

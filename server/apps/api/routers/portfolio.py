@@ -63,11 +63,6 @@ async def delete_portfolio(portfolio_id: str, service_factory: ServiceFactory = 
     """Delete a portfolio by its ID"""
     return await controller.delete_portfolio(portfolio_id, service_factory, trading_state)
 
-@router.get("/positions/{portfolio_id}")
-async def get_positions(portfolio_id: str, service_factory: ServiceFactory = Depends(get_service_factory)) -> dict:
-    """Get positions for a portfolio"""
-    return await controller.get_positions(portfolio_id, service_factory)
-
 @router.get("/stats/global")
 async def get_global_stats(service_factory: ServiceFactory = Depends(get_service_factory), trading_state: TradingStateManager = Depends(get_trading_state)) -> dict:
     """Get global statistics across all portfolios"""
@@ -77,3 +72,8 @@ async def get_global_stats(service_factory: ServiceFactory = Depends(get_service
 async def get_open_positions(service_factory: ServiceFactory = Depends(get_service_factory), trading_state: TradingStateManager = Depends(get_trading_state)) -> dict:
     """Get all open positions across all portfolios"""
     return await controller.get_open_positions(service_factory, trading_state)
+
+@router.get("/positions/{portfolio_id}")
+async def get_positions(portfolio_id: str, service_factory: ServiceFactory = Depends(get_service_factory)) -> dict:
+    """Get positions for a portfolio"""
+    return await controller.get_positions(portfolio_id, service_factory)
