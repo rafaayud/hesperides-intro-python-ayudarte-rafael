@@ -268,12 +268,13 @@ class TradingEngine:
                         quantity=response.quantity,
                         entry_time=Timestamp(datetime.now()),
                         target_quantity=response.quantity,
-                        status=TradeStatus.EXECUTED
-                    )
+                        status=TradeStatus.EXECUTED)
                     await self._portfolio_manager.open_position(order.trader_id, position)
+
                     logger.info(f"🟢 BUY {order.trader_id} | {order.symbol.symbol} @ ${response.price.value:,.2f} | Qty: {response.quantity.value}")
                     
                 elif order.side == Side.SELL:
+
                     trade = await self._portfolio_manager.close_position(order.trader_id, response)
                     status = "✅" if trade.winner else "❌"
                     logger.info(f"🔴 SELL {order.trader_id} | {trade.symbol.symbol} | Entry: ${trade.entry_price.value:,.2f} → Exit: ${trade.exit_price.value:,.2f} | PnL: ${trade.pnl.value:+,.2f} ({trade.pnl_percentage:+.2f}%) {status}")

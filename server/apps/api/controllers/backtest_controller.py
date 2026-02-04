@@ -6,12 +6,13 @@ import logging
 from fastapi import HTTPException
 
 
+
 logger = logging.getLogger(__name__)
 
 
 class BacktestController:
 
-    async def backtest(self, backtest_request: BacktestRequest, service_factory: ServiceFactory) -> dict:
+     async def backtest(self, backtest_request: BacktestRequest, service_factory: ServiceFactory) -> dict:
         """
         Backtest a strategy: first sync data, then run backtest
         """
@@ -57,5 +58,12 @@ class BacktestController:
         except Exception as e:
             logger.error(f"Error backtesting strategy: {e}")
             raise HTTPException(status_code=500, detail=str(e))
+
+
+     @staticmethod
+     def _run_backtest_in_process(strategy, candles, capital):
+        from modules.trading.application.services.backtest_service import BacktestService
+        bt = BacktestService()
+        return bt.test_strategy(strategy, candles, capital)
 
 

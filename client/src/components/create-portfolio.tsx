@@ -57,7 +57,9 @@ export function CreatePortfolio({ onSuccess }: CreatePortfolioProps = {}) {
   const loadStrategies = async () => {
     try {
       const data = await fetchStrategies()
-      setStrategies(data)
+      // Remove candle pattern strategy from the frontend list
+      const filtered = data.filter(s => s.id !== "candle_pattern")
+      setStrategies(filtered)
     } catch (error) {
       console.error("Failed to load strategies:", error)
     } finally {

@@ -512,7 +512,7 @@ class PortfolioController:
                 detail=f"Failed to get global stats: {str(e)}"
             )
 
-    async def get_open_positions(self, service_factory: ServiceFactory, trading_state: TradingStateManager) -> dict:
+    async def get_open_positions(self, service_factory: ServiceFactory) -> dict:
         """
         Get all open positions across all portfolios.
         """

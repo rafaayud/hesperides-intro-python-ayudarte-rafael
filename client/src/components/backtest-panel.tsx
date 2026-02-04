@@ -68,7 +68,9 @@ export function BacktestPanel() {
   const loadStrategies = async () => {
     try {
       const data = await fetchStrategies()
-      setStrategies(data)
+      // Hide candle_pattern strategy from backtest options
+      const filtered = data.filter(s => s.id !== "candle_pattern")
+      setStrategies(filtered)
     } catch (error) {
       console.error("Failed to load strategies:", error)
       toast.error("Failed to load strategies")
@@ -470,9 +472,6 @@ export function BacktestPanel() {
                   </div>
                   <div className="text-xl font-bold">
                     {result.win_rate.toFixed(1)}%
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    {result.total_winners}W / {result.total_losers}L
                   </div>
                 </CardContent>
               </Card>

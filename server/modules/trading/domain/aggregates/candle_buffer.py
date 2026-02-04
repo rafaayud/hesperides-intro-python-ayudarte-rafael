@@ -58,17 +58,17 @@ class CandleBuffer:
         if self.current_candle is None:
             raise ValueError("No hay vela actual para cerrar")
 
-        # Validación 0: símbolo
+        # Validation 0: symbol
         if candle_closed.ohlcv.symbol != self.symbol:
             raise ValueError(f"Symbol mismatch: expected {self.symbol}, received {candle_closed.ohlcv.symbol}")
 
-        # Validación 1: identidad por open_time (no close_time)
+        # Validation 1: identity by open_time (no close_time)
         if candle_closed.ohlcv.timestamp != self.current_candle.ohlcv.timestamp:
             raise ValueError(
                 f"Open time mismatch: expected {self.current_candle.ohlcv.timestamp}, received {candle_closed.ohlcv.timestamp}"
             )
 
-        # Validación 2: alineación temporal respecto a session_origin
+        # Validation 2: temporal alignment with session_origin
         if self.session_origin is not None:
             # Restar datetime objects directamente, no Timestamp objects
             offset = candle_closed.ohlcv.timestamp - self.session_origin.timestamp
@@ -79,7 +79,7 @@ class CandleBuffer:
                     f"offset={offset_seconds}, timeframe={self.timeframe_seconds}s"
                 )
 
-        # Validación 3: monotonicidad
+        # Validation 3: monotonicity
         if len(self.closed_candles) > 0:
             last_open = self.closed_candles[-1].timestamp
             new_open = candle_closed.ohlcv.timestamp
@@ -158,6 +158,20 @@ class CandleBuffer:
         
         self.is_degraded = False
 
+    def recover(self, candles: List[Candle_static]) -> None:
+        """
+        Recover buffer with historical candles.
+        
+        Args:
+            candles: List of closed candles, sorted by time (oldest first)
+        """
+        self.closed_candles.clear()
+        self.current_candle = None
+        self.warm_up(candles)
+
+        self.mark_recovered()
+        
+
     def is_ready(self, min_candles: int) -> bool:
         """Check if buffer has enough candles for trading."""
         return len(self.closed_candles) >= min_candles
@@ -224,3 +238,4 @@ class CandleBuffer:
             return "STALE"
         
         return "OK"
+
