@@ -1,0 +1,88 @@
+@startuml
+!theme plain
+autonumber
+
+actor "User" as User
+participant "FastAPI" as API
+participant "TradingController" as Controller
+participant "TradingEngine" as Engine
+participant "BinanceStreamAdapter" as Stream
+participant "Trader" as Trader
+participant "CandleBuffer" as Buffer
+participant "Strategy" as Strategy
+participant "PortfolioManager" as PortfolioMgr
+participant "BinanceOrderAdapter" as OrderAdapter
+participant "PostgresPortfolioAdapter" as DB
+
+== Initialization ==
+User -> API: POST /api/trading/start
+API -> Controller: start_trading(portfolio_id)
+Controller -> Engine: startup()
+Engine -> PortfolioMgr: restore_state()
+PortfolioMgr -> DB: load_portfolio_state()
+DB --> PortfolioMgr: portfolio data
+PortfolioMgr -> Engine: initialize traders
+Engine -> Engine: warm_up_traders()
+Engine -> Stream: connect()
+Engine -> OrderAdapter: connect()
+Engine --> Controller: ready
+Controller --> API: 200 OK
+
+== Real-time Trading Loop ==
+Engine -> Stream: stream_candle(symbol, interval)
+Stream --> Engine: Candle (is_closed=false)
+Engine -> Trader: on_candle(candle)
+Trader -> Buffer: on_candle_update(candle)
+Buffer --> Trader: updated
+
+Stream --> Engine: Candle (is_closed=true)
+Engine -> Trader: on_candle(candle)
+Trader -> Buffer: on_candle_close(candle)
+Buffer --> Trader: closed
+Trader -> Buffer: get_last_closed(n)
+Buffer --> Trader: closed_candles
+Trader -> Strategy: generate_signal(candles)
+Strategy --> Trader: Signal.BUY
+
+alt Signal == BUY and no position
+    Trader --> Engine: Signal.BUY
+    Engine -> PortfolioMgr: has_position(trader_id)
+    PortfolioMgr --> Engine: false
+    Engine -> OrderAdapter: get_current_price(symbol)
+    OrderAdapter --> Engine: Price
+    Engine -> Engine: _create_order(trader, BUY)
+    Engine -> Engine: _order_queue.put(order)
+    Engine -> OrderAdapter: buy_market(symbol, quantity)
+    OrderAdapter -> Binance: POST /api/v3/order
+    Binance --> OrderAdapter: OrderResponse
+    OrderAdapter --> Engine: OrderResponse
+    Engine -> Engine: _response_queue.put(order, response)
+    Engine -> PortfolioMgr: open_position(trader_id, position)
+    PortfolioMgr -> DB: save_position(portfolio_id, trader_id, position)
+    DB --> PortfolioMgr: saved
+    PortfolioMgr --> Engine: position opened
+    Engine -> Trader: position updated
+else Signal == SELL and has position
+    Trader --> Engine: Signal.SELL
+    Engine -> PortfolioMgr: has_position(trader_id)
+    PortfolioMgr --> Engine: true
+    Engine -> PortfolioMgr: get_position(trader_id)
+    PortfolioMgr --> Engine: Position
+    Engine -> OrderAdapter: sell_market(symbol, quantity)
+    OrderAdapter -> Binance: POST /api/v3/order
+    Binance --> OrderAdapter: OrderResponse
+    OrderAdapter --> Engine: OrderResponse
+    Engine -> PortfolioMgr: close_position(trader_id, response)
+    PortfolioMgr -> PortfolioMgr: position.close(exit_price, exit_time)
+    PortfolioMgr -> DB: save_trade(portfolio_id, trader_id, trade)
+    DB --> PortfolioMgr: saved
+    PortfolioMgr -> DB: delete_positions(portfolio_id, trader_id)
+    DB --> PortfolioMgr: deleted
+    PortfolioMgr --> Engine: trade closed
+else Signal == HOLD
+    Trader --> Engine: Signal.HOLD
+    Engine -> Engine: continue (no action)
+end
+
+@enduml
+

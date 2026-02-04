@@ -1,0 +1,283 @@
+@startuml
+!theme plain
+skinparam classAttributeIconSize 0
+
+package "Domain Layer" {
+    
+    ' ============ VALUE OBJECTS ============
+    package "Value Objects" {
+        class Symbol {
+            +symbol: str
+        }
+        
+        class Interval {
+            +value: str
+            +seconds: int
+            +max_candles: int
+        }
+        
+        class Price {
+            +value: Decimal
+        }
+        
+        class Quantity {
+            +value: Decimal
+        }
+        
+        class Timestamp {
+            +timestamp: datetime
+        }
+        
+        class Signal {
+            <<enumeration>>
+            BUY
+            SELL
+            HOLD
+        }
+        
+        class TradeStatus {
+            <<enumeration>>
+            PENDING
+            EXECUTED
+            PARTIALLY_EXECUTED
+            CANCELLED
+            FAILED
+        }
+        
+        class Candle_static {
+            +symbol: Symbol
+            +interval: Interval
+            +timestamp: Timestamp
+            +open: Price
+            +high: Price
+            +low: Price
+            +close: Price
+            +volume: Quantity
+        }
+        
+        class PnL {
+            +value: Decimal
+            +is_positive: bool
+        }
+    }
+    
+    ' ============ ENTITIES ============
+    package "Entities" {
+        class Trade {
+            +symbol: Symbol
+            +entry_price: Price
+            +exit_price: Price
+            +entry_time: Timestamp
+            +exit_time: Timestamp
+            +quantity: Quantity
+            +trader_id: str
+            +pnl: PnL
+            +pnl_percentage: float
+            +winner: bool
+        }
+        
+        class Position {
+            +symbol: Symbol
+            +side: Side
+            +entry_price: Price
+            +entry_time: Timestamp
+            +quantity: Quantity
+            +status: TradeStatus
+            +target_quantity: Quantity
+            +close(exit_price, exit_time): Trade
+        }
+        
+        class Candle {
+            +ohlcv: Candle_static
+            +close_time: Timestamp
+            +event_time: Timestamp
+            +ingestion_time: Timestamp
+            +trades_count: int
+            +is_closed: bool
+        }
+        
+        class Order {
+            +trader_id: str
+            +symbol: Symbol
+            +side: Side
+            +quantity: Quantity
+            +price: Price
+            +order_id: str
+            +status: TradeStatus
+        }
+        
+        class OrderResponse {
+            +order_id: str
+            +symbol: Symbol
+            +quantity: Quantity
+            +price: Price
+            +side: Side
+            +status: TradeStatus
+            +timestamp: Timestamp
+        }
+    }
+    
+    ' ============ AGGREGATES ============
+    package "Aggregates" {
+        class Portfolio {
+            +id: str
+            +name: str
+            +initial_capital: Decimal
+            +traders: List[Trader]
+            -_trades: Dict[str, List[Trade]]
+            -_positions: Dict[str, Position]
+            +register_trader(trader): void
+            +open_position(trader_id, position): void
+            +close_position(trader_id, response): Trade
+            +get_capital(trader_id): Decimal
+            +has_position(trader_id): bool
+        }
+        
+        class Trader {
+            +id: str
+            +strategy: Strategy
+            +symbol: Symbol
+            +interval: Interval
+            -_buffer: CandleBuffer
+            -_last_signal: Signal
+            +on_candle(candle): Signal
+            +warm_up(candles): void
+        }
+        
+        class CandleBuffer {
+            -closed_candles: Deque[Candle_static]
+            -current_candle: Optional[Candle]
+            -max_size: int
+            -is_degraded: bool
+            +on_candle_update(candle): void
+            +on_candle_close(candle): void
+            +get_last_closed(n): List[Candle_static]
+            +recover(candles): void
+        }
+        
+        class BacktestResult {
+            +symbol: Symbol
+            +interval: Interval
+            +strategy_name: str
+            +initial_capital: float
+            +final_capital: float
+            +total_pnl: PnL
+            +trades: tuple[Trade]
+            +to_dict(): dict
+        }
+    }
+    
+    ' ============ STRATEGIES ============
+    package "Strategies" {
+        abstract class Strategy {
+            #_name: str
+            #_min_candles: int
+            #_mode: ExecutionMode
+            +name: str
+            +min_candles_required: int
+            +execution_mode: ExecutionMode
+            +{abstract} generate_signal(candles): Signal
+        }
+        
+        class MeanCross {
+            -_slow_period: int
+            -_fast_period: int
+            +generate_signal(candles): Signal
+        }
+        
+        class Momentum {
+            -_reference_period: int
+            -_threshold: float
+            +generate_signal(candles): Signal
+        }
+        
+        class MeanCrossTakeProfit {
+            -_slow_period: int
+            -_fast_period: int
+            -_take_profit: float
+            +generate_signal(candles): Signal
+        }
+        
+        class MockStrategy {
+            +generate_signal(candles): Signal
+        }
+    }
+}
+
+' ============ RELATIONSHIPS ============
+
+' Portfolio relationships
+Portfolio "1" *-- "many" Trader : contains
+Portfolio "1" *-- "many" Trade : tracks
+Portfolio "1" *-- "many" Position : manages
+
+' Trader relationships
+Trader "1" *-- "1" Strategy : uses
+Trader "1" *-- "1" CandleBuffer : contains
+Trader "1" --> "1" Symbol : trades
+Trader "1" --> "1" Interval : uses
+
+' Strategy inheritance
+Strategy <|-- MeanCross
+Strategy <|-- Momentum
+Strategy <|-- MeanCrossTakeProfit
+Strategy <|-- MockStrategy
+
+' CandleBuffer relationships
+CandleBuffer "1" *-- "many" Candle_static : stores
+
+' Trade relationships
+Trade "1" --> "1" Symbol : for
+Trade "1" --> "1" Price : entry_price
+Trade "1" --> "1" Price : exit_price
+Trade "1" --> "1" Timestamp : entry_time
+Trade "1" --> "1" Timestamp : exit_time
+Trade "1" --> "1" Quantity : quantity
+Trade "1" --> "1" PnL : pnl
+
+' Position relationships
+Position "1" --> "1" Symbol : for
+Position "1" --> "1" Price : entry_price
+Position "1" --> "1" Timestamp : entry_time
+Position "1" --> "1" Quantity : quantity
+Position "1" --> "1" TradeStatus : status
+
+' Candle relationships
+Candle "1" *-- "1" Candle_static : ohlcv
+Candle "1" --> "1" Timestamp : close_time
+Candle "1" --> "1" Timestamp : event_time
+Candle "1" --> "1" Timestamp : ingestion_time
+
+' Candle_static relationships
+Candle_static "1" --> "1" Symbol : symbol
+Candle_static "1" --> "1" Interval : interval
+Candle_static "1" --> "1" Timestamp : timestamp
+Candle_static "1" --> "1" Price : open
+Candle_static "1" --> "1" Price : high
+Candle_static "1" --> "1" Price : low
+Candle_static "1" --> "1" Price : close
+Candle_static "1" --> "1" Quantity : volume
+
+' Order relationships
+Order "1" --> "1" Symbol : symbol
+Order "1" --> "1" Side : side
+Order "1" --> "1" Quantity : quantity
+Order "1" --> "1" Price : price
+Order "1" --> "1" TradeStatus : status
+
+' OrderResponse relationships
+OrderResponse "1" --> "1" Symbol : symbol
+OrderResponse "1" --> "1" Side : side
+OrderResponse "1" --> "1" Quantity : quantity
+OrderResponse "1" --> "1" Price : price
+OrderResponse "1" --> "1" TradeStatus : status
+OrderResponse "1" --> "1" Timestamp : timestamp
+
+' BacktestResult relationships
+BacktestResult "1" --> "1" Symbol : symbol
+BacktestResult "1" --> "1" Interval : interval
+BacktestResult "1" *-- "many" Trade : contains
+BacktestResult "1" --> "1" PnL : total_pnl
+
+@enduml
+
