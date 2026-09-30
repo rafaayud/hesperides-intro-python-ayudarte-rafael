@@ -1,5 +1,7 @@
 "use client"
 
+import { formatPnl } from "@/lib/utils"
+
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -97,7 +99,7 @@ export function GlobalStats() {
               PnL
             </div>
             <div className={`text-lg font-bold font-mono ${isProfitable ? 'text-profit' : 'text-loss'}`}>
-              {isProfitable ? '+' : ''}{(stats?.total_pnl || 0).toFixed(2)}
+              {isProfitable ? '+' : ''}{formatPnl(stats?.total_pnl || 0)}
             </div>
           </div>
         </div>

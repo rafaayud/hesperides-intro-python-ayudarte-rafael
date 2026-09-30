@@ -15,7 +15,7 @@ export function Clock() {
   }, [])
 
   const formatTime = (date: Date) => {
-    return date.toLocaleTimeString('es-ES', { 
+    return date.toLocaleTimeString('en-GB', {
       timeZone: 'UTC',
       hour: '2-digit', 
       minute: '2-digit', 
@@ -25,7 +25,7 @@ export function Clock() {
   }
 
   const formatDate = (date: Date) => {
-    return date.toLocaleDateString('es-ES', {
+    return date.toLocaleDateString('en-GB', {
       timeZone: 'UTC',
       day: '2-digit',
       month: 'short',
@@ -34,7 +34,7 @@ export function Clock() {
   }
 
   return (
-    <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted/50 border border-border">
+    <div className="flex items-center gap-2 px-3 py-1.5 whitespace-nowrap rounded-lg bg-muted/50 border border-border">
       <ClockIcon className="h-4 w-4 text-muted-foreground" />
       <div className="flex flex-col">
         <div className="text-sm font-mono font-semibold">{formatTime(time)} UTC</div>

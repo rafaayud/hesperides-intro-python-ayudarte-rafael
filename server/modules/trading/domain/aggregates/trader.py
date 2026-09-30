@@ -40,6 +40,7 @@ class Trader:
     strategy: Strategy
     symbol: Symbol
     interval: Interval
+    strategy_params: dict = field(default_factory=dict)
     
     # Internal CandleBuffer (composition)
     _buffer: CandleBuffer = field(init=False)

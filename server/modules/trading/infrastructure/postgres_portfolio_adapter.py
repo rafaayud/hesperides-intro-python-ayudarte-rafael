@@ -9,6 +9,7 @@ from ..domain.utils.metaclasses import AdapterMeta
 
 from tenacity import retry, stop_after_attempt, wait_exponential
 import logging
+import json
 import asyncpg
 from decimal import Decimal
 
@@ -112,17 +113,18 @@ class PostgresPortfolioAdapter(PortfolioStoragePort, metaclass=AdapterMeta):
 
                         await conn.execute(
                             """
-                            INSERT INTO portfolio_traders (portfolio_id, trader_id, strategy_name, symbol, interval, allocated_capital)
-                            VALUES ($1, $2, $3, $4, $5, $6)
+                            INSERT INTO portfolio_traders (portfolio_id, trader_id, strategy_name, symbol, interval, allocated_capital, strategy_params)
+                            VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb)
                             ON CONFLICT (portfolio_id, trader_id) DO UPDATE 
-                            SET strategy_name = $3, symbol = $4, interval = $5, allocated_capital = $6
+                            SET strategy_name = $3, symbol = $4, interval = $5, allocated_capital = $6, strategy_params = $7::jsonb
                             """,
                             portfolio_id,
                             trader_id,
                             strategy_key, 
                             symbol,
                             interval,
-                            capital
+                            capital,
+                            json.dumps(trader.strategy_params),
                         )
                     
                     # Save current open positions from portfolio state
@@ -272,6 +274,7 @@ class PostgresPortfolioAdapter(PortfolioStoragePort, metaclass=AdapterMeta):
                 logging.info(f"Position {position.symbol} {position.side} saved successfully")
         except Exception as e:
             logging.error(f"Error saving position {position.symbol} {position.side}: {e}")
+            raise
             
     @timed_async
     async def delete_positions(self, portfolio_id: str, trader_id: str) -> None:

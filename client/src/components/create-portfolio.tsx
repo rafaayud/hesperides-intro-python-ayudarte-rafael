@@ -122,6 +122,7 @@ export function CreatePortfolio({ onSuccess }: CreatePortfolioProps = {}) {
       case 'number':
         return (
           <Input
+            aria-label={param.label}
             type="number"
             value={value || ''}
             onChange={(e) => handleParamChange(traderIndex, param.name, parseFloat(e.target.value) || param.default)}
@@ -137,7 +138,7 @@ export function CreatePortfolio({ onSuccess }: CreatePortfolioProps = {}) {
             value={value || param.default}
             onValueChange={(val) => handleParamChange(traderIndex, param.name, val)}
           >
-            <SelectTrigger>
+            <SelectTrigger aria-label={param.label}>
               <SelectValue placeholder={param.default} />
             </SelectTrigger>
             <SelectContent>
@@ -158,6 +159,7 @@ export function CreatePortfolio({ onSuccess }: CreatePortfolioProps = {}) {
       default:
         return (
           <Input
+            aria-label={param.label}
             value={value || ''}
             onChange={(e) => handleParamChange(traderIndex, param.name, e.target.value)}
             placeholder={param.default?.toString()}

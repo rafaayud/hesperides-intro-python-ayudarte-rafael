@@ -1,5 +1,7 @@
 "use client"
 
+import { formatPnl } from "@/lib/utils"
+
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -75,7 +77,7 @@ export function TraderCard({ trader, trades, onViewChart }: TraderCardProps) {
           <div className="bg-secondary/30 rounded p-2">
             <div className="text-[10px] text-muted-foreground uppercase">PnL</div>
             <div className={`font-semibold font-mono ${totalPnl >= 0 ? 'text-profit' : 'text-loss'}`}>
-              {totalPnl >= 0 ? '+' : ''}{totalPnl.toFixed(2)}
+              {totalPnl >= 0 ? '+' : ''}{formatPnl(totalPnl)}
             </div>
           </div>
         </div>
@@ -85,7 +87,7 @@ export function TraderCard({ trader, trades, onViewChart }: TraderCardProps) {
             <div className="flex items-center justify-between text-xs">
               <span className="text-muted-foreground">Last trade:</span>
               <span className={`font-mono font-medium ${(lastTrade.pnl || 0) >= 0 ? 'text-profit' : 'text-loss'}`}>
-                {(lastTrade.pnl || 0) >= 0 ? '+' : ''}{(lastTrade.pnl || 0).toFixed(2)}
+                {(lastTrade.pnl || 0) >= 0 ? '+' : ''}{formatPnl(lastTrade.pnl || 0)}
               </span>
             </div>
           </div>

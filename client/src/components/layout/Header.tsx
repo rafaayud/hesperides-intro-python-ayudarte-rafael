@@ -24,7 +24,7 @@ export function Header() {
         </div>
         
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
+          <div className="hidden sm:flex items-center gap-2">
             <span className="h-2 w-2 rounded-full bg-profit animate-pulse-dot" />
             <span className="text-xs text-muted-foreground">Live</span>
           </div>

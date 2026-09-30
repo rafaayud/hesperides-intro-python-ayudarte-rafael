@@ -133,6 +133,13 @@ class PortfolioController:
             )
         
         schema = param_schemas[strategy_lower]
+        for param in schema["common_params"] + schema["specific_params"]:
+            param["label"] = param["name"].replace("_", " ").title()
+            if "enum" in param:
+                param["type"] = "select"
+                param["options"] = [{"value": value, "label": value} for value in param.pop("enum")]
+            if param["type"] == "number":
+                param["step"] = 0.01 if isinstance(param["default"], float) else 1
         
         return {
             "strategy_name": strategy_lower,
@@ -197,7 +204,8 @@ class PortfolioController:
                     id=f"{request.portfolio_id}_{symbol.symbol}_{interval.value}_{strategy.name}",
                     strategy=strategy,
                     symbol=symbol,
-                    interval=interval
+                    interval=interval,
+                    strategy_params=trader_config.strategy_params.model_dump(exclude_none=True) if trader_config.strategy_params else {},
                 )
                 traders.append(trader)
             
@@ -404,7 +412,7 @@ class PortfolioController:
         Delete a portfolio by its ID.
         """
         try:
-            if trading_state.is_running(portfolio_id):
+            if await trading_state.is_running(portfolio_id):
                 await trading_state.shutdown(portfolio_id)
 
             portfolio_manager = service_factory.create_portfolio_manager()

@@ -1,26 +1,35 @@
 # CryptoTrader
 
-**Motor de trading de criptomonedas con arquitectura hexagonal, FastAPI y un dashboard en React.**
+**An educational cryptocurrency trading engine built with hexagonal architecture, FastAPI and React.**
 
 [![CI](https://github.com/rafaayud/hesperides-intro-python-ayudarte-rafael/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/rafaayud/hesperides-intro-python-ayudarte-rafael/actions/workflows/ci.yml)
 
-Proyecto universitario desarrollado en enero-febrero de 2026 para aprender a separar lógica de negocio, casos de uso y conexiones externas. Integra datos de mercado de Binance, backtesting, gestión de carteras y ejecución de órdenes en **Binance Spot Testnet**. La interfaz permite explorar velas, consultar operaciones y comparar estrategias.
+Built in January-February 2026 as a university project to learn how domain logic, application services and external integrations fit together. CryptoTrader combines live Binance market data, local backtesting, portfolio management and order execution on **Binance Spot Testnet**.
 
-[Memoria académica original](docs/memoria.pdf) · [Backend](server/modules/trading) · [Frontend](client/src) · [Pruebas](server/tests)
+[Original academic report (Spanish)](docs/memoria.pdf) · [Domain and services](server/modules/trading) · [Frontend](client/src) · [Tests](server/tests)
 
-## Qué se puede probar
+## Features
 
-- **Mercado en directo:** velas OHLCV y volumen por WebSocket, con histórico almacenado en PostgreSQL.
-- **Backtesting:** cruce de medias, cruce de medias con take profit y momentum; muestra operaciones, capital final, PnL y porcentaje de aciertos.
-- **Carteras:** varios traders por cartera, cada uno con activo, intervalo y estrategia.
-- **Ejecución asíncrona:** recepción de velas, evaluación de señales, envío de órdenes y actualización de posiciones mediante colas de `asyncio`.
-- **Fechas coherentes:** velas, marcadores de compra/venta, tablas y reloj en UTC, sin depender de la zona horaria de Windows, Docker o el navegador.
+- Live OHLCV candlestick and volume charts, streamed over WebSocket and backed by PostgreSQL history.
+- Moving average crossover, crossover with take profit, momentum and a random test strategy.
+- Backtests with entry/exit markers, trade history, realized PnL and win rate.
+- Portfolios containing multiple traders, each with its own symbol, interval and saved strategy parameters.
+- An asynchronous trading pipeline connecting market events, signals, orders and portfolio updates.
+- Consistent UTC timestamps across exchange responses, storage, charts, tables and the dashboard clock.
 
-Los datos públicos y el backtesting funcionan **sin claves de Binance**. Las claves de Spot Testnet solo son necesarias para arrancar el motor de órdenes. El backtest es una simulación local; Testnet ejecuta órdenes contra el entorno de pruebas del exchange.
+Public market data and backtesting work **without API keys**. Starting a trading engine requires Spot Testnet credentials. Backtesting is a local simulation; Testnet submits orders to Binance's separate test environment.
 
-## Arranque con Docker
+## Screenshots
 
-Requisitos: Git, Docker y Docker Compose.
+![Live market chart and completed Testnet trade](docs/screenshots/trading.png)
+
+![Backtest configuration, chart and results](docs/screenshots/backtest.png)
+
+![Portfolio and trade history](docs/screenshots/portfolio.png)
+
+## Quick start
+
+Requires Git, Docker and Docker Compose.
 
 ```bash
 git clone https://github.com/rafaayud/hesperides-intro-python-ayudarte-rafael.git
@@ -28,111 +37,140 @@ cd hesperides-intro-python-ayudarte-rafael
 docker compose up --build -d
 ```
 
-La primera ejecución descarga las dependencias e inicializa la base de datos.
+The first run installs dependencies and initializes the database.
 
-| Servicio | Dirección |
+| Service | Local address |
 | --- | --- |
 | Dashboard | http://localhost:5173 |
-| Documentación interactiva de la API | http://localhost:8000/docs |
-| Estado de la API | http://localhost:8000/health |
+| Interactive API documentation | http://localhost:8000/docs |
+| API health | http://localhost:8000/health |
 | PostgreSQL | `localhost:5432` |
 
-Para una primera prueba:
-
-1. Abre **Trading** y selecciona BTC/USDT y `1h`. La aplicación sincroniza el histórico y conecta el stream.
-2. En **Backtest**, elige *Moving Average Cross* y ejecuta la simulación. Puedes comparar las etiquetas BUY/SELL con la tabla de operaciones: ambas usan UTC.
-3. En **Portfolios**, crea una cartera con uno o varios traders. Arrancar la ejecución requiere credenciales de Testnet.
+1. Open **Trading**, select BTC/USDT and `1h`, and wait for history to synchronize.
+2. Open **Backtest**, choose *Moving Average Cross*, and run the simulation. Chart markers and trade timestamps use UTC. Scroll or zoom the chart to explore earlier trades.
+3. Open **Portfolios** to create a portfolio and configure its traders. Add Testnet credentials before pressing **Start**. **Stop** stops the engine; it does not liquidate an open position.
 
 ```bash
 docker compose logs -f trading_app
 docker compose down
 ```
 
-PostgreSQL usa un volumen persistente: los datos se conservan al detener y volver a crear los contenedores. `docker compose down -v` **elimina ese volumen y sus datos**. Los puertos se publican únicamente en la máquina local.
+Database data survives container restarts in the `postgres_data` volume. **`docker compose down -v` deletes that volume and its data.** Compose binds ports to the local computer only.
 
-### Configuración opcional de Testnet
+### Spot Testnet configuration
 
-Copia `.env.example` a `.env` (`cp .env.example .env` en macOS/Linux; `Copy-Item .env.example .env` en PowerShell). Añade tus credenciales de [Binance Spot Testnet](https://testnet.binance.vision/) y vuelve a ejecutar `docker compose up -d`.
+Copy `.env.example` to `.env` (`cp .env.example .env` on macOS/Linux, or `Copy-Item .env.example .env` in PowerShell). Add credentials from [Binance Spot Testnet](https://testnet.binance.vision/), then run `docker compose up -d` again.
 
-| Variable | Uso | Valor de ejemplo |
+| Variable | Purpose | Example/default |
 | --- | --- | --- |
-| `BINANCE_API_KEY` | Clave de Spot Testnet | Vacío |
-| `BINANCE_SECRET_KEY` | Secreto de Spot Testnet | Vacío |
-| `BINANCE_TESTNET` | Configuración del entorno de pruebas | `true` |
-| `DATABASE_URL` | Conexión del backend ejecutado fuera de Docker | `postgresql://postgres:postgres@localhost:5432/trading` |
-| `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | Base de datos local de Compose | `postgres` / `postgres` / `trading` |
-| `VITE_API_URL` | URL de la API para el frontend | `http://localhost:8000/api` |
+| `BINANCE_API_KEY` | Spot Testnet API key | Empty |
+| `BINANCE_SECRET_KEY` | Spot Testnet secret | Empty |
+| `BINANCE_TESTNET` | Test environment setting | `true` |
+| `DATABASE_URL` | Database URL for a backend outside Docker | `postgresql://postgres:postgres@localhost:5432/trading` |
+| `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | Local Compose database | `postgres` / `postgres` / `trading` |
+| `VITE_API_URL` | Frontend API base URL | `http://localhost:8000/api` |
 
-Compose configura su propia `DATABASE_URL` con el hostname interno `postgres`. El archivo `.env` está excluido de Git y de la imagen Docker; el repositorio contiene únicamente la plantilla vacía.
+Compose sets its backend database URL using the internal `postgres` hostname. `.env` is excluded from Git and Docker build context; only the empty example belongs in the repository.
 
-## Arquitectura
+## Architecture
 
-El dominio define los puertos y las reglas; la aplicación coordina los casos de uso; los adaptadores implementan el acceso al exchange y a la base de datos. FastAPI configura las dependencias en el arranque.
+The domain owns the trading rules and port interfaces. Application services orchestrate use cases. Infrastructure adapters implement those ports, and FastAPI wires dependencies at startup. The React dashboard communicates with the API through REST and WebSocket endpoints.
 
 ```mermaid
 flowchart LR
-    UI[React + TypeScript] -->|REST / WebSocket| API[FastAPI]
-    API --> APP[Servicios de aplicación]
-    APP --> DOMAIN[Dominio: carteras, traders y estrategias]
-    APP --> PORTS[Puertos definidos en el dominio]
-    BINANCE[Adaptadores Binance] -. implementan .-> PORTS
-    POSTGRES[Adaptadores PostgreSQL] -. implementan .-> PORTS
-    MOCKS[Adaptadores de pruebas] -. implementan .-> PORTS
-    BINANCE --> EXCHANGE[Datos públicos / Spot Testnet]
-    POSTGRES --> DB[(PostgreSQL)]
+    UI[React dashboard] --> API[FastAPI controllers]
+    subgraph Core[Application core]
+        Services[Application services] --> Domain[Portfolios, traders and strategies]
+        Services --> Ports[Domain port interfaces]
+    end
+    API --> Services
+    Binance[Binance adapters] -. implement .-> Ports
+    Postgres[PostgreSQL adapters] -. implement .-> Ports
+    Mocks[Test adapters] -. implement .-> Ports
+    Binance --> Public[Public market data]
+    Binance --> Testnet[Spot Testnet orders]
+    Postgres --> DB[(PostgreSQL)]
 ```
 
-| Capa | Responsabilidad | Ejemplos |
+| Layer | Responsibility | Examples |
 | --- | --- | --- |
-| Dominio | Entidades, objetos de valor, agregados, estrategias y puertos | `Timestamp`, `CandleBuffer`, `Portfolio`, `Trader`, `ExchangePort` |
-| Aplicación | Ingesta, backtesting, carteras y coordinación del motor | `DataIngestionService`, `BacktestService`, `TradingEngine` |
-| Infraestructura | Binance REST/WebSocket, ejecución de órdenes y persistencia | `BinanceAdapter`, `BinanceStreamAdapter`, `PostgresAdapter` |
-| Entrada | Rutas, validación de peticiones e inyección de dependencias | `server/apps/api` |
+| Domain | Entities, value objects, aggregates, strategies and ports | `Timestamp`, `CandleBuffer`, `Trader`, `Portfolio`, `ExchangePort` |
+| Application | Data ingestion, backtesting, portfolio state and execution | `DataIngestionService`, `BacktestService`, `PortfolioManager`, `TradingEngine` |
+| Infrastructure | Market data, order execution and persistence | `BinanceAdapter`, `BinanceStreamAdapter`, `BinanceOrderAdapter`, `PostgresPortfolioAdapter` |
+| Entry points | HTTP routes, request validation and dependency setup | `server/apps/api` |
 
-El motor conecta cuatro tareas mediante tres colas:
+### Trading pipeline
 
-```text
-WebSocket → cola de velas → señales → cola de órdenes
-          → ejecución → cola de respuestas → actualización de cartera
+Four asynchronous tasks communicate through three bounded `asyncio.Queue` instances. Traders sharing a symbol and interval receive the same candle stream.
+
+```mermaid
+flowchart LR
+    Stream[WebSocket task] --> CQ[Candle queue]
+    CQ --> Signals[Signal processor]
+    Signals --> OQ[Order queue]
+    OQ --> Orders[Order executor]
+    Orders --> RQ[Response queue]
+    RQ --> Update[Portfolio updater]
+    Update --> DB[(Positions and trades)]
 ```
 
-Entre los aspectos del proyecto están el uso de `Decimal` para precios y cantidades, context managers asíncronos para las conexiones, buffers de velas, adaptadores intercambiables y pruebas del dominio sin acceso al exchange.
+### A completed trade
 
-```text
-.
-├── client/                         # React, TypeScript, Vite, Lightweight Charts
-│   ├── src/components/             # Trading, carteras y backtesting
-│   ├── src/lib/                    # Cliente API y tratamiento temporal compartido
-│   └── tests/                      # Regresiones de fechas y marcadores
-├── server/
-│   ├── apps/api/                   # FastAPI: rutas, controladores y configuración
-│   ├── modules/trading/
-│   │   ├── domain/                 # Reglas, estrategias, agregados y puertos
-│   │   ├── application/services/   # Casos de uso y motor asíncrono
-│   │   └── infrastructure/         # Binance, PostgreSQL y mocks
-│   └── tests/                      # Suite automática y experimentos originales
-├── docker/init.sql                 # Esquema para una base de datos nueva
-├── scripts/migrate_utc.py           # Migración de fechas para instalaciones anteriores
-├── docs/memoria.pdf                 # Entrega académica original
-└── .github/workflows/ci.yml         # Pruebas y compilación en GitHub Actions
+```mermaid
+sequenceDiagram
+    participant Market as Market stream
+    participant Trader
+    participant Engine as Trading engine
+    participant Exchange as Spot Testnet
+    participant Portfolio
+    participant DB as PostgreSQL
+    Market->>Trader: Closed candle
+    Trader->>Engine: BUY signal
+    Engine->>Exchange: Market buy
+    Exchange-->>Engine: Fill price, quantity and UTC execution time
+    Engine->>Portfolio: Open position
+    Portfolio->>DB: Save open position
+    Market->>Trader: Later closed candle
+    Trader->>Engine: SELL signal
+    Engine->>Exchange: Market sell
+    Exchange-->>Engine: Fill and UTC execution time
+    Engine->>Portfolio: Close position and calculate realized PnL
+    Portfolio->>DB: Save trade and remove open position
 ```
 
-Stack principal: **Python 3.11+, FastAPI, Pydantic, asyncio, asyncpg, PostgreSQL 16, React 18, TypeScript, Vite, Tailwind CSS, Lightweight Charts y Recharts**. Las versiones resueltas están en `uv.lock` y `client/package-lock.json`.
+Prices and quantities use `Decimal`. Connections use asynchronous context managers. Strategies can be exercised with historical candles and test adapters without sending exchange orders.
 
-## Desarrollo local
+```text
+client/
+  src/components/             Trading, portfolios and backtesting UI
+  src/lib/                    API client and shared chart time handling
+  tests/                      Timestamp and marker regressions
+server/
+  apps/api/                   FastAPI routes, controllers and configuration
+  modules/trading/
+    domain/                   Entities, aggregates, strategies and ports
+    application/services/     Use cases and asynchronous engine
+    infrastructure/           Binance, PostgreSQL and mock adapters
+  tests/                      Automated suite and original experiments
+docker/init.sql               Schema for a new database
+scripts/                      Non-destructive migrations for older installations
+docs/                         Academic report and dashboard screenshots
+.github/workflows/ci.yml       GitHub Actions tests and frontend build
+```
 
-Requisitos: Python 3.11 o superior, [uv](https://docs.astral.sh/uv/), Node.js 22 o superior y PostgreSQL. Ejecuta los comandos desde la raíz del repositorio.
+Main stack: **Python 3.11+, FastAPI, Pydantic, asyncio, asyncpg, PostgreSQL 16, React 18, TypeScript, Vite, Tailwind CSS, Lightweight Charts and Recharts**. Resolved dependency versions are recorded in `uv.lock` and `client/package-lock.json`.
+
+## Local development
+
+Requires Python 3.11+, [uv](https://docs.astral.sh/uv/), Node.js 22+ and PostgreSQL. Run from the repository root:
 
 ```bash
-# Solo la base de datos en Docker
 docker compose up -d postgres
-
-# Backend
 uv sync --frozen
 uv run uvicorn apps.api.main:app --app-dir server --reload
 ```
 
-En otra terminal:
+In a second terminal:
 
 ```bash
 cd client
@@ -140,20 +178,20 @@ npm ci
 npm run dev
 ```
 
-## Pruebas
+## Tests and continuous integration
 
 ```bash
-# Dominio, estrategias, adaptadores y regresiones temporales, sin claves ni exchange
+# Domain, strategies, adapters and API regressions; no exchange credentials required
 uv run pytest -q
 
-# Fechas, marcadores y compilación del frontend
+# Frontend timestamp tests and production build
 cd client
 npm ci
 npm test
 npm run build
 ```
 
-Para incluir la regresión con PostgreSQL, arranca la base de datos y define `TEST_DATABASE_URL` antes de ejecutar `uv run pytest -q`:
+To include the PostgreSQL integration regression, start the database and set `TEST_DATABASE_URL`:
 
 ```powershell
 # PowerShell
@@ -166,65 +204,88 @@ uv run pytest -q
 TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/trading uv run pytest -q
 ```
 
-Esta prueba crea y elimina un esquema aislado. Verifica la escritura/lectura de instantes UTC, la selección de las velas más recientes y la migración de datos anteriores. GitHub Actions ejecuta el backend con Python 3.11/3.13 y zonas horarias distintas, y las pruebas y compilación del frontend con Node.js 22.
+The database test creates and removes its own isolated schema. It checks UTC storage, recent candle selection, legacy migration, saved strategy parameters, positions, cash remainders and completed trades after reload. Other regressions cover strategy form metadata and engine shutdown.
 
-La configuración de pytest selecciona la suite automática. Los scripts originales de integración y experimentación que permanecen en `server/tests` no forman parte de esa suite: algunos necesitan servicios externos o pueden enviar órdenes a Testnet.
+GitHub Actions was added during the post-submission cleanup. It runs the backend on Python 3.11 and 3.13 with different time zones and a PostgreSQL service, plus frontend tests and the production build on Node.js 22.
 
-## Fechas, relojes y corrección del problema original
+Pytest selects the automated suite explicitly. Original integration and experiment scripts remain in `server/tests`, outside that suite; some require external services or can place Testnet orders.
 
-La [memoria](docs/memoria.pdf) documenta que se retiraron las etiquetas de operaciones por aparecer en una vela equivocada. La revisión posterior corrige ese recorrido temporal:
+### Manual verification
 
-- Binance entrega milisegundos Unix. Los adaptadores los convierten a `datetime` con zona UTC y la API devuelve ISO 8601 con `+00:00`.
-- PostgreSQL guarda instantes en columnas `TIMESTAMPTZ`. Una consulta limitada devuelve las **últimas** velas, ordenadas cronológicamente.
-- Lightweight Charts recibe segundos Unix sin sumar el desfase horario del navegador. El reloj, las tablas y las etiquetas indican UTC.
-- La entrada de una posición conserva la hora de ejecución del exchange. El reloj del navegador es orientativo y no decide cuándo ocurrió una orden.
-- Las etiquetas se asignan al intervalo que contiene la ejecución. Las operaciones fuera del histórico o dentro de huecos no se colocan en una vela ajena.
-- Las actualizaciones duplicadas reemplazan su vela; no se inventan segundos adicionales. Las actualizaciones antiguas no desplazan la última vela y el stream recibido durante la carga se combina con el histórico.
+The dashboard was reviewed in Chromium at desktop and 390 px mobile widths. A portfolio created through the UI ran the random *Mock Strategy* on BTC/USDT one-minute candles with 30 USDT of Testnet capital. It bought and sold 0.00035 BTC, recorded one completed trade, and retained 29.997578 USDT after reload. Both fills matched the exchange's quantities, prices and UTC timestamps to the millisecond. The engine was then stopped with no open positions.
 
-Las pruebas cubren invierno/verano, la hora repetida del cambio de horario, fracciones de segundo, límites de velas, meses de distinta duración y operaciones superpuestas.
+The same trade displayed identical UTC dates in browsers configured for Europe/Madrid and America/New_York, with BUY/SELL markers rendered on the chart. A separate moving-average backtest completed over 10,000 candles. These checks validate the tested paths, not strategy profitability or production readiness.
 
-### Bases de datos de la versión anterior
+## UTC and the original chart issue
 
-Una instalación nueva no necesita migración. Si conservas una base de datos con columnas `TIMESTAMP`, detén el backend y haz una copia antes de convertirla:
+The [academic report](docs/memoria.pdf) describes removing trade markers because they appeared on the wrong candles. The cleanup fixes the timestamp path:
+
+- Binance Unix milliseconds become timezone-aware UTC `datetime` values. The API emits ISO 8601 timestamps with an explicit offset.
+- PostgreSQL stores instants in `TIMESTAMPTZ` columns. Limited candle queries return the **latest** records in chronological order.
+- Charts consume Unix seconds without adding the browser's time zone offset. Clock, tables and chart labels explicitly show UTC.
+- Live positions retain the exchange execution time rather than the application server's clock time.
+- Each trade marker is placed on the candle containing its execution time. Trades outside the loaded history or inside missing-data gaps are excluded.
+- Duplicate candle updates replace the existing candle. Older updates cannot move the current candle backwards; stream updates received while history loads are merged into that history.
+
+Regression cases include summer/winter offsets, the repeated daylight-saving hour, fractional seconds, candle boundaries, calendar months and overlapping trades.
+
+### Upgrading an existing database
+
+New installations need no migration. Back up an existing database and stop the backend before upgrading.
+
+For legacy timezone-naive columns:
 
 ```bash
 uv run python scripts/migrate_utc.py --source-timezone UTC
 ```
 
-Indica la zona horaria del **backend original**: normalmente `UTC` si lo ejecutaste en el contenedor original; `Europe/Madrid` si guardó horas locales de España. El script conserva las filas y omite las columnas ya convertidas. Los campos `created_at`, generados por PostgreSQL, se interpretan como UTC; si la sesi?n original de la base de datos usaba otra zona, ind?cala con `--created-timezone`. No ejecutes `docker/init.sql` sobre una base de datos existente.
+Use the **original backend's time zone**: usually `UTC` for the original Docker setup, or `Europe/Madrid` if it saved Spanish local wall times. Database-generated `created_at` values default to UTC; use `--created-timezone` if that original database session used another zone. The script preserves rows and skips columns already converted. Mixed-origin or ambiguous daylight-saving timestamps require manual review because a naive timestamp cannot reveal its original offset.
 
-Una fecha antigua sin zona no permite deducir si pertenecía a UTC o a una hora local; los datos que mezclan procedencias requieren revisión previa. Las horas ambiguas del cambio de horario tampoco pueden reconstruirse de forma inequívoca a partir de una fecha sin offset.
+For databases created before strategy parameters were persisted:
 
-## API principal
+```powershell
+# PowerShell, with the local Compose database running
+Get-Content scripts/migrate_strategy_params.sql | docker compose exec -T postgres psql -U postgres -d trading -v ON_ERROR_STOP=1
+```
 
-| Método | Ruta | Uso |
+```bash
+# macOS / Linux
+docker compose exec -T postgres psql -U postgres -d trading -v ON_ERROR_STOP=1 < scripts/migrate_strategy_params.sql
+```
+
+This adds a JSONB column without removing rows. Existing traders keep their previous default settings; parameters that were never saved cannot be recovered. **Do not rerun `docker/init.sql` against an existing database.**
+
+## API overview
+
+| Method | Route | Purpose |
 | --- | --- | --- |
-| `GET` | `/health` | Estado del proceso API |
-| `PUT` | `/candles/sync` | Sincronizar datos públicos con PostgreSQL |
-| `GET` | `/candles/{symbol}/{interval}` | Leer velas; intervalos como `M1`, `H1`, `D1` |
-| `WS` | `/live_candles/{symbol}/{interval}` | Stream de velas |
-| `POST` | `/api/backtest` | Simulación; intervalos como `1m`, `1h`, `1d` |
-| `GET` | `/api/portfolio/strategies` | Estrategias disponibles |
-| `POST` | `/api/portfolio/create` | Crear una cartera |
-| `GET` | `/api/portfolio/trades/{portfolio_id}` | Consultar operaciones |
-| `POST` | `/api/trading/start/{portfolio_id}` | Arrancar ejecución en Testnet |
-| `POST` | `/api/trading/stop/{portfolio_id}` | Detener el motor |
+| `GET` | `/health` | API process health |
+| `PUT` | `/candles/sync` | Synchronize public market data |
+| `GET` | `/candles/{symbol}/{interval}` | Read candles; intervals such as `M1`, `H1`, `D1` |
+| `WS` | `/live_candles/{symbol}/{interval}` | Live candle stream |
+| `POST` | `/api/backtest` | Run a simulation; intervals such as `1m`, `1h`, `1d` |
+| `GET` | `/api/portfolio/strategies` | Available strategies and parameters |
+| `POST` | `/api/portfolio/create` | Create a portfolio |
+| `GET` | `/api/portfolio/trades/{portfolio_id}` | Read completed trades |
+| `POST` | `/api/trading/start/{portfolio_id}` | Start Testnet execution |
+| `POST` | `/api/trading/stop/{portfolio_id}` | Stop the engine |
 
-Los esquemas y el resto de rutas están en `/docs` al arrancar FastAPI.
+Explore request schemas and the remaining endpoints at `/docs` after starting FastAPI.
 
-## Alcance y limitaciones
+## Scope and limitations
 
-Es un **prototipo educativo para ejecución local**, sin autenticación ni aislamiento entre usuarios. No está preparado para gestionar fondos reales ni para exponer la API en Internet.
+This is an **educational prototype for local use**, with no authentication or user isolation. It is not ready to manage real funds or expose its trading API to the Internet.
 
-- El backtest ejecuta al precio de cierre y no modela comisiones, deslizamiento, liquidez ni latencia. Sus resultados no demuestran rentabilidad futura.
-- Los datos de mercado proceden de Binance público; las órdenes van al entorno Spot Testnet. Sus precios y saldos pueden diferir.
-- La estrategia de patrones de velas permanece fuera de las opciones del dashboard, como en la entrega original.
-- La recuperación automática de streams, la coordinación entre procesos y la persistencia de todos los parámetros de las estrategias tienen trabajo pendiente.
-- Los intervalos mensuales se muestran correctamente en las gráficas, pero el buffer del motor aproxima un mes a 30 días. Para ejecutar el motor, utiliza intervalos de duración fija.
-- El acceso a Binance depende de la conectividad y de su disponibilidad en tu ubicación. Si la sincronización falla, la gráfica informa del problema y trata de cargar el histórico almacenado.
+- Backtesting fills at candle close and does not model fees, slippage, liquidity or latency. Portfolio PnL is gross of exchange fees.
+- Public market candles and Spot Testnet order prices can differ. Testnet balances and results are test data.
+- The order sizing path currently assumes a `0.00001` quantity step. Supporting arbitrary pairs requires exchange-specific lot-size and notional filters, partial-fill handling and reconciliation.
+- Automatic stream recovery, coordination across processes and atomic reconciliation of exchange fills with database writes remain future work.
+- Monthly charts use calendar boundaries, but the engine's candle buffer approximates a month as 30 days. Use fixed-duration intervals for engine execution.
+- The candlestick-pattern strategy remains outside the dashboard options, as in the original submission.
+- Binance access depends on connectivity and regional availability. If synchronization fails, the chart reports it and attempts to use stored history.
 
-La memoria se conserva como documento de la entrega de febrero de 2026; sus comentarios sobre fallos describen aquella versión. Este README recoge el estado posterior a las correcciones.
+The academic report is preserved as submitted in February 2026. Its discussion of bugs describes that version; this README documents the subsequent fixes.
 
-## Autor
+## Author
 
 [Rafael Ayudarte](https://github.com/rafaayud) · Universidad de las Hespérides.

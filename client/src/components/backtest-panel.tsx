@@ -1,5 +1,7 @@
 "use client"
 
+import { formatPnl } from "@/lib/utils"
+
 import { useState, useEffect, useRef } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -158,7 +160,7 @@ export function BacktestPanel() {
       candleData as { time: number }[], result.trades || [], result.interval,
     ))
     
-    chart.timeScale().fitContent()
+    chart.timeScale().setVisibleLogicalRange({ from: Math.max(0, candleData.length - 120), to: candleData.length })
     
     // Handle resize
     const handleResize = () => {
@@ -223,6 +225,7 @@ export function BacktestPanel() {
       case 'number':
         return (
           <Input
+            aria-label={param.label}
             type="number"
             value={value ?? ''}
             onChange={(e) => {
@@ -248,7 +251,7 @@ export function BacktestPanel() {
             value={value || param.default}
             onValueChange={(val) => handleParamChange(param.name, val)}
           >
-            <SelectTrigger className="h-8">
+            <SelectTrigger aria-label={param.label} className="h-8">
               <SelectValue placeholder={param.default} />
             </SelectTrigger>
             <SelectContent>
@@ -269,6 +272,7 @@ export function BacktestPanel() {
       default:
         return (
           <Input
+            aria-label={param.label}
             value={value || ''}
             onChange={(e) => handleParamChange(param.name, e.target.value)}
             placeholder={param.default?.toString()}
@@ -402,7 +406,7 @@ export function BacktestPanel() {
       </Card>
       
       {/* Results Panel */}
-      <div className="lg:col-span-2 space-y-4">
+      <div className="lg:col-span-2 min-w-0 space-y-4">
         {running ? (
           <Card>
             <CardContent className="py-8">
@@ -423,7 +427,7 @@ export function BacktestPanel() {
                     Total PnL
                   </div>
                   <div className={`text-xl font-bold ${isProfitable ? 'text-green-500' : 'text-red-500'}`}>
-                    ${result.total_pnl.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    ${result.total_pnl.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </div>
                   <div className={`text-xs ${isProfitable ? 'text-green-500/80' : 'text-red-500/80'}`}>
                     {isProfitable ? '+' : ''}{result.total_pnl_percentage.toFixed(2)}%
@@ -465,10 +469,10 @@ export function BacktestPanel() {
                     Capital
                   </div>
                   <div className="text-xl font-bold">
-                    ${result.final_capital.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    ${result.final_capital.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </div>
                   <div className="text-xs text-muted-foreground">
-                    From ${result.initial_capital.toLocaleString()}
+                    From ${result.initial_capital.toLocaleString('en-US')}
                   </div>
                 </CardContent>
               </Card>
@@ -520,7 +524,7 @@ export function BacktestPanel() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {result.trades.map((trade, i) => (
+                        {[...result.trades].reverse().map((trade, i) => (
                           <TableRow key={i}>
                             <TableCell className="text-xs">
                               {formatUtcDateTime(trade.entry_time)}
@@ -529,13 +533,13 @@ export function BacktestPanel() {
                               {formatUtcDateTime(trade.exit_time)}
                             </TableCell>
                             <TableCell className="text-xs text-right">
-                              ${trade.entry_price.toLocaleString()}
+                              ${trade.entry_price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </TableCell>
                             <TableCell className="text-xs text-right">
-                              ${trade.exit_price.toLocaleString()}
+                              ${trade.exit_price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </TableCell>
                             <TableCell className={`text-xs text-right font-medium ${trade.pnl >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                              {trade.pnl >= 0 ? '+' : ''}${trade.pnl.toFixed(2)}
+                              {trade.pnl >= 0 ? '+' : ''}${formatPnl(trade.pnl)}
                               <span className="text-muted-foreground ml-1">
                                 ({trade.pnl_percentage >= 0 ? '+' : ''}{trade.pnl_percentage.toFixed(2)}%)
                               </span>

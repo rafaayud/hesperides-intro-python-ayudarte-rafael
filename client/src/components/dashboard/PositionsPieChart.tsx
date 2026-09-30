@@ -84,9 +84,9 @@ export function PositionsPieChart() {
           </div>
           {hasPositions && (
             <div className="text-right">
-              <div className="text-xs text-muted-foreground">Total Value</div>
+              <div className="text-xs text-muted-foreground">Entry Value</div>
               <div className="font-mono font-semibold text-lg">
-                ${(data?.total_value || 0).toLocaleString()}
+                ${(data?.total_value || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </div>
             </div>
           )}
@@ -119,7 +119,7 @@ export function PositionsPieChart() {
                         <div className="bg-popover border border-border rounded-lg p-2 shadow-lg">
                           <div className="font-medium">{data.fullName}</div>
                           <div className="text-sm text-muted-foreground">
-                            ${data.value.toLocaleString()}
+                            ${data.value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </div>
                         </div>
                       )
@@ -172,7 +172,7 @@ export function PositionsPieChart() {
                   <span className="text-muted-foreground">@ ${(pos.entry_price || 0).toFixed(2)}</span>
                 </div>
                 <div className="font-mono">
-                  ${(pos.current_value || 0).toLocaleString()}
+                  ${(pos.current_value || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </div>
               </div>
             ))}

@@ -1,6 +1,7 @@
 from decimal import Decimal
 from typing import Dict, Optional, List
 import logging
+import json
 
 from modules.trading.domain.value_objects import Symbol, Side, Price, Quantity, Timestamp, TradeStatus, Interval
 from modules.trading.domain.aggregates import Portfolio, Trader
@@ -79,7 +80,7 @@ class PortfolioManager:
         This method:
         1. Retrieves portfolio data (id, name, initial_capital)
         2. Retrieves all traders with their strategies
-        3. Reconstructs traders using StrategyFactory (with default parameters)
+        3. Reconstructs traders using StrategyFactory and their saved parameters
         4. Creates the Portfolio aggregate
         5. Restores state (positions, trades, capital)
         
@@ -115,10 +116,12 @@ class PortfolioManager:
             
                 strategy_key = strategy_name.lower()
                 
-                # Create strategy with default parameters (no params = defaults)
+                params = trader_data.get("strategy_params") or {}
+                if isinstance(params, str):
+                    params = json.loads(params)
                 strategy = StrategyFactory.create_strategy(
                     strategy_name=strategy_key,
-                    strategy_params=None  # Use default parameters
+                    strategy_params=params,
                 )
                 
                 # Create trader
@@ -126,7 +129,8 @@ class PortfolioManager:
                     id=trader_id,
                     strategy=strategy,
                     symbol=symbol,
-                    interval=interval
+                    interval=interval,
+                    strategy_params=params,
                 )
                 traders.append(trader)
                 

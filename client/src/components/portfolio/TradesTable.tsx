@@ -1,5 +1,7 @@
 "use client"
 
+import { formatPnl } from "@/lib/utils"
+
 import {
   Table,
   TableBody,
@@ -49,7 +51,8 @@ export function TradesTable({ trades, loading }: TradesTableProps) {
       <Table>
         <TableHeader>
           <TableRow className="hover:bg-transparent">
-            <TableHead className="w-[120px]">Time (UTC)</TableHead>
+            <TableHead>Entry Time (UTC)</TableHead>
+            <TableHead>Exit Time (UTC)</TableHead>
             <TableHead className="w-[100px]">Symbol</TableHead>
             <TableHead className="text-right w-[100px]">Entry</TableHead>
             <TableHead className="text-right w-[100px]">Exit</TableHead>
@@ -67,7 +70,10 @@ export function TradesTable({ trades, loading }: TradesTableProps) {
             return (
               <TableRow key={trade.id || index} className="group hover:bg-muted/30">
                 <TableCell className="font-mono text-xs text-muted-foreground">
-                  {formatUtcDateTime(trade.exit_time || trade.entry_time)}
+                  {formatUtcDateTime(trade.entry_time)}
+                </TableCell>
+                <TableCell className="font-mono text-xs text-muted-foreground">
+                  {formatUtcDateTime(trade.exit_time)}
                 </TableCell>
                 <TableCell className="font-medium">
                   <span className="text-sm">{trade.symbol.replace('USDT', '')}</span>
@@ -80,7 +86,7 @@ export function TradesTable({ trades, loading }: TradesTableProps) {
                   ${formatPrice(trade.exit_price)}
                 </TableCell>
                 <TableCell className="text-right font-mono text-sm text-muted-foreground">
-                  {trade.quantity?.toFixed(4) || '-'}
+                  {trade.quantity?.toLocaleString('en-US', { maximumFractionDigits: 8 }) || '-'}
                 </TableCell>
                 <TableCell className="text-right">
                   <div className={`flex items-center justify-end gap-1 font-mono font-medium ${isProfit ? 'text-profit' : 'text-loss'}`}>
@@ -89,7 +95,7 @@ export function TradesTable({ trades, loading }: TradesTableProps) {
                     ) : (
                       <TrendingDown className="h-3.5 w-3.5" />
                     )}
-                    {isProfit ? '+' : ''}{pnl.toFixed(2)}
+                    {isProfit ? '+' : ''}{formatPnl(pnl)}
                   </div>
                 </TableCell>
                 <TableCell className="text-right">

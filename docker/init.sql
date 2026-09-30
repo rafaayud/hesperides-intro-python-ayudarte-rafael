@@ -41,6 +41,7 @@ CREATE TABLE portfolio_traders (
     symbol VARCHAR(20) NOT NULL,
     interval VARCHAR(10) NOT NULL,
     allocated_capital NUMERIC(18,8) NOT NULL,
+    strategy_params JSONB NOT NULL DEFAULT '{}'::jsonb,
     PRIMARY KEY (portfolio_id, trader_id)
 );
 

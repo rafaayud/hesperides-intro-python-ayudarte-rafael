@@ -12,6 +12,7 @@ from modules.trading.domain.strategies.mock_strategy import MockStrategy
 from modules.trading.domain.strategies.mean_cross_take_profit import MeanCrossTakeProfit
 from modules.trading.domain.value_objects import ExecutionMode
 from typing import Any, Dict, Callable
+from types import SimpleNamespace
 
 
 class StrategyFactory:
@@ -166,6 +167,8 @@ class StrategyFactory:
             ValueError: If execution_mode is invalid
             TypeError: If kwargs are invalid for the strategy
         """
+        if isinstance(strategy_params, dict):
+            strategy_params = SimpleNamespace(**strategy_params)
         strategy_name_lower = strategy_name.lower()
         
         if strategy_name_lower not in cls._strategies:

@@ -54,46 +54,33 @@ class TradingStateManager:
 
 
 #============= SHUTDOWN =============
-    async def shutdown(self, portfolio_id: str) -> None:
-
-        # If it's not running, nothing to do
-        if not await self.is_running(portfolio_id):
-            return False
-        
+    async def shutdown(self, portfolio_id: str) -> bool:
+        # Remove ownership first: a cancelled task also calls shutdown in finally.
         async with self._lock:
-            engine = self._active_engines.get(portfolio_id)
-            task = self._tasks.get(portfolio_id)
-        
-        if engine:
-            try:
-                await engine.stop()
-            except Exception as e:
-                logger.error(f"Error stopping engine {portfolio_id}: {e}")
-        
-        if task and not task.done():
+            engine = self._active_engines.pop(portfolio_id, None)
+            task = self._tasks.pop(portfolio_id, None)
+        if engine is None:
+            return False
+
+        await engine.stop()
+        if task and task is not asyncio.current_task() and not task.done():
             task.cancel()
             try:
                 await task
             except asyncio.CancelledError:
                 pass
-        
-        # Cleanup connections
-        if engine:
-            try:
-                await engine._stream.disconnect()
-                await engine._order.disconnect()
-                await engine._exchange.disconnect()
-            except Exception as e:
-                logger.error(f"Error disconnecting engine adapters {portfolio_id}: {e}")
-        
-        await self.unregister_engine(portfolio_id)
+
+        for adapter in (engine._stream, engine._order, engine._exchange, engine._portfolio_manager):
+            if adapter is not None:
+                try:
+                    await adapter.disconnect()
+                except Exception as exc:
+                    logger.error("Error disconnecting %s for %s: %s", type(adapter).__name__, portfolio_id, exc)
         return True
 
-    
     async def shutdown_all(self) -> None:
-        """Shutdown all trading engines"""
         async with self._lock:
-            for portfolio_id in list(self._active_engines.keys()):
-                await self.shutdown(portfolio_id)
-
+            portfolio_ids = list(self._active_engines)
+        for portfolio_id in portfolio_ids:
+            await self.shutdown(portfolio_id)
         logger.info("All trading engines shutdown")

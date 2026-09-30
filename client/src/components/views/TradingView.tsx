@@ -88,7 +88,7 @@ export function TradingView({
   return (
     <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 h-full">
       {/* Chart area - 3 columns */}
-      <div className="lg:col-span-3 flex flex-col gap-4">
+      <div className="lg:col-span-3 min-w-0 flex flex-col gap-4">
         
         {/* Trader viewing banner - prominent when viewing a trader */}
         {isViewingTrader && (
@@ -134,7 +134,7 @@ export function TradingView({
         <Card className="border-border/50">
           <CardContent className="p-3">
             <div className="flex items-center justify-between gap-4 flex-wrap">
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3 min-w-0">
                 <CryptoSelector 
                   value={chartConfig.symbol} 
                   onChange={(symbol) => setChartConfig({ ...chartConfig, symbol, portfolioId: undefined, traderId: undefined })} 

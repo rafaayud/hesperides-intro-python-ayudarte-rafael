@@ -45,9 +45,9 @@ export function MainLayout() {
       
       <div className="flex-1 flex">
         {/* Main content area */}
-        <main className="flex-1 p-4">
+        <main className="flex-1 min-w-0 p-4">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full">
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
               <TabsList className="bg-secondary/50">
                 <TabsTrigger 
                   value="trading" 

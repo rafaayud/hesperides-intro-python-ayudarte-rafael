@@ -1,5 +1,7 @@
 "use client"
 
+import { formatPnl } from "@/lib/utils"
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -18,6 +20,7 @@ import { TraderCard } from "./TraderCard"
 import { TradesTable } from "./TradesTable"
 import type { Portfolio, TradingStatus, Trader, Trade } from "@/lib/api"
 import type { ChartConfig } from "@/components/layout/MainLayout"
+import { backendInterval } from "@/lib/chart-time"
 
 interface PortfolioWithDetails extends Portfolio {
   status?: TradingStatus
@@ -43,7 +46,7 @@ export function PortfolioDetail({ portfolio, onTraderSelect, onRefresh }: Portfo
   const handleViewTrader = (trader: Trader) => {
     onTraderSelect({
       symbol: trader.symbol,
-      interval: trader.interval,
+      interval: backendInterval(trader.interval),
       portfolioId: portfolio.id,
       traderId: trader.id
     })
@@ -54,7 +57,7 @@ export function PortfolioDetail({ portfolio, onTraderSelect, onRefresh }: Portfo
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div>
-            <CardTitle className="text-xl flex items-center gap-2">
+            <CardTitle className="text-xl flex flex-wrap items-center gap-2">
               {portfolio.name}
               <Badge 
                 variant="outline"
@@ -65,17 +68,17 @@ export function PortfolioDetail({ portfolio, onTraderSelect, onRefresh }: Portfo
             </CardTitle>
             <CardDescription className="mt-1">{portfolio.id}</CardDescription>
           </div>
-          <Button variant="ghost" size="sm" onClick={onRefresh}>
+          <Button variant="ghost" size="sm" onClick={onRefresh} aria-label="Refresh portfolio">
             <RefreshCw className="h-4 w-4" />
           </Button>
         </div>
         
         {/* Stats row */}
-        <div className="grid grid-cols-4 gap-4 mt-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-4">
           <div className="bg-secondary/50 rounded-lg p-3">
             <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1">
               <DollarSign className="h-3.5 w-3.5" />
-              Capital
+              Initial Capital
             </div>
             <div className="text-lg font-semibold font-mono">
               ${Math.round(portfolio.initial_capital || 0).toLocaleString()}
@@ -102,7 +105,7 @@ export function PortfolioDetail({ portfolio, onTraderSelect, onRefresh }: Portfo
               Total PnL
             </div>
             <div className={`text-lg font-semibold font-mono ${totalPnl >= 0 ? 'text-profit' : 'text-loss'}`}>
-              {totalPnl >= 0 ? '+' : ''}{totalPnl.toFixed(2)}
+              {totalPnl >= 0 ? '+' : ''}{formatPnl(totalPnl)}
             </div>
           </div>
           

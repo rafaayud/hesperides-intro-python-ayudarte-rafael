@@ -11,7 +11,7 @@ import logging
 from asyncio import Queue, TaskGroup
 
 from typing import Dict, List, Set, Tuple
-from decimal import Decimal
+from decimal import Decimal, ROUND_DOWN
 
 from ...domain.ports import OrderPort, StreamPort, ExchangePort
 from ...application.services.portfolio_manager import PortfolioManager
@@ -189,7 +189,7 @@ class TradingEngine:
             capital = self._portfolio_manager.get_capital(trader.id)
             price = await self._order.get_current_price(candle.symbol)
             quantity = Quantity(
-                (capital / price.value).quantize(Decimal("0.00001"))
+                (capital / price.value).quantize(Decimal("0.00001"), rounding=ROUND_DOWN)
             )
             
             return Order(

@@ -62,7 +62,7 @@ class Portfolio:
 
     @property
     def num_traders(self) -> int:
-        return self._num_traders
+        return len(self.traders)
 
     # ==================
     # Position Management
@@ -84,7 +84,9 @@ class Portfolio:
 
         
         self._positions[trader_id] = position
-        self._current_capital[trader_id] = PnL(Decimal("0"))
+        self._current_capital[trader_id] = PnL(
+            self.get_capital(trader_id) - position.entry_price.value * position.quantity.value
+        )
         logger.info(
             f"Position opened for {trader_id}: {position.symbol} "
             f"{position.side.value} @ {position.entry_price}"
@@ -131,7 +133,6 @@ class Portfolio:
     # Query Methods
     # ==================
 
-    @property
     def trades(self, trader_id: str) -> List[Trade]:
         """All completed trades (read-only)."""
         return self._trades[trader_id].copy()
@@ -209,11 +210,11 @@ class Portfolio:
                 for trade in self._trades[trader_id]:
                     capital += trade.pnl.value
             
-            # If trader has open position, capital is 0 (locked in position)
+            # Preserve the unspent cash left after quantity rounding.
             if trader_id in open_positions:
                 self._positions[trader_id] = open_positions[trader_id]
-                # Capital is locked in position, so available capital is 0
-                self._current_capital[trader_id] = PnL(Decimal("0"))
+                position = open_positions[trader_id]
+                self._current_capital[trader_id] = PnL(capital - position.entry_price.value * position.quantity.value)
                 logger.info(
                     f"Restored open position for {trader_id}: {open_positions[trader_id].symbol} "
                     f"(capital locked in position: 0, total value: {capital:.2f})"
@@ -234,7 +235,6 @@ class Portfolio:
         """Number of open positions."""
         return sum(1 for position in self._positions.values() if position is not None)
 
-    @property
     def num_completed_trades(self, trader_id: str) -> int:
         """Number of completed trades."""
         return len(self._trades[trader_id])

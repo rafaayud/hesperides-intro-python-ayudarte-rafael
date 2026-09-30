@@ -10,7 +10,7 @@ interface TimeframeSelectorProps {
 
 export function TimeframeSelector({ value, onChange }: TimeframeSelectorProps) {
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex flex-wrap items-center gap-1">
       {TIMEFRAMES.map((tf) => (
         <Button
           key={tf}

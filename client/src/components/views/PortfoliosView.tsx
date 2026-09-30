@@ -93,6 +93,11 @@ export function PortfoliosView({ onTraderSelect }: PortfoliosViewProps) {
       )
       
       setPortfolios(portfoliosWithStatus)
+      setSelectedPortfolio(current => {
+        if (!current) return null
+        const refreshed = portfoliosWithStatus.find(p => p.id === current.id)
+        return refreshed ? { ...current, ...refreshed } : null
+      })
       
       // Auto-select first portfolio only once
       if (portfoliosWithStatus.length > 0 && !hasAutoSelected.current) {
@@ -184,7 +189,7 @@ export function PortfoliosView({ onTraderSelect }: PortfoliosViewProps) {
               <Skeleton key={i} className="h-32 w-full" />
             ))}
           </div>
-          <div className="lg:col-span-3">
+          <div className="lg:col-span-3 min-w-0">
             <Skeleton className="h-96 w-full" />
           </div>
         </div>
@@ -207,6 +212,7 @@ export function PortfoliosView({ onTraderSelect }: PortfoliosViewProps) {
               variant="ghost"
               size="sm"
               onClick={() => setShowCreateForm(!showCreateForm)}
+              aria-label="Create portfolio"
               className="h-8 w-8 p-0"
             >
               <Plus className={`h-4 w-4 transition-transform ${showCreateForm ? 'rotate-45' : ''}`} />
@@ -215,6 +221,7 @@ export function PortfoliosView({ onTraderSelect }: PortfoliosViewProps) {
               variant="ghost"
               size="sm"
               onClick={loadPortfolios}
+              aria-label="Refresh portfolios"
               disabled={refreshing}
               className="h-8 w-8 p-0"
             >
@@ -357,7 +364,7 @@ export function PortfoliosView({ onTraderSelect }: PortfoliosViewProps) {
       </div>
       
       {/* Main content - Portfolio Detail */}
-      <div className="lg:col-span-3">
+      <div className="lg:col-span-3 min-w-0">
         {selectedPortfolio ? (
           <PortfolioDetail 
             portfolio={selectedPortfolio}
