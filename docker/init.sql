@@ -5,13 +5,6 @@
 -- Crea todas las tablas necesarias para la plataforma de trading
 -- =============================================================================
 
--- Limpiar tablas existentes (orden inverso por FK)
-DROP TABLE IF EXISTS trades CASCADE;
-DROP TABLE IF EXISTS positions CASCADE;
-DROP TABLE IF EXISTS portfolio_traders CASCADE;
-DROP TABLE IF EXISTS portfolios CASCADE;
-DROP TABLE IF EXISTS candles CASCADE;
-
 -- =============================================================================
 -- TABLA: candles (datos de mercado históricos)
 -- =============================================================================
@@ -19,7 +12,7 @@ CREATE TABLE candles (
     id SERIAL PRIMARY KEY,
     symbol VARCHAR(20) NOT NULL,
     interval VARCHAR(10) NOT NULL,
-    open_time TIMESTAMP NOT NULL,
+    open_time TIMESTAMPTZ NOT NULL,
     open NUMERIC,
     high NUMERIC,
     low NUMERIC,
@@ -35,7 +28,7 @@ CREATE TABLE portfolios (
     id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
     name VARCHAR(100) NOT NULL UNIQUE,
     initial_capital NUMERIC(18,8) NOT NULL,
-    created_at TIMESTAMP DEFAULT NOW()
+    created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- =============================================================================
@@ -61,9 +54,9 @@ CREATE TABLE positions (
     side VARCHAR(4) NOT NULL,
     entry_price NUMERIC(18,8) NOT NULL,
     quantity NUMERIC(18,8) NOT NULL,
-    entry_time TIMESTAMP NOT NULL,
+    entry_time TIMESTAMPTZ NOT NULL,
     status VARCHAR(20) DEFAULT 'OPEN',
-    created_at TIMESTAMP DEFAULT NOW(),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
     UNIQUE (portfolio_id, trader_id),
     FOREIGN KEY (portfolio_id, trader_id) REFERENCES portfolio_traders(portfolio_id, trader_id) ON DELETE CASCADE
 );
@@ -82,9 +75,9 @@ CREATE TABLE trades (
     quantity NUMERIC(18,8) NOT NULL,
     pnl NUMERIC(18,8) NOT NULL,
     pnl_percentage NUMERIC(8,4) NOT NULL,
-    entry_time TIMESTAMP NOT NULL,
-    exit_time TIMESTAMP NOT NULL,
-    created_at TIMESTAMP DEFAULT NOW()
+    entry_time TIMESTAMPTZ NOT NULL,
+    exit_time TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- =============================================================================

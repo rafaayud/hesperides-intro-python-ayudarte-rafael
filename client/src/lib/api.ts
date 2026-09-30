@@ -11,7 +11,7 @@ export interface Strategy {
 
 export interface StrategyParam {
   name: string
-  type: 'number' | 'select' | 'array' | 'text'
+  type: 'number' | 'select' | 'array' | 'text' | 'readonly'
   label: string
   description: string
   default?: any
@@ -471,4 +471,3 @@ export function getWebSocketUrl(symbol: string, interval: string): string {
   const wsBase = CANDLES_BASE_URL.replace('http://', 'ws://').replace('https://', 'wss://')
   return `${wsBase}/live_candles/${symbol}/${interval}`
 }
-

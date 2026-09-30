@@ -7,6 +7,7 @@ __pycache__
 *.py[cod]
 *$py.class
 .venv
+.venv-*
 venv/
 .pytest_cache/
 .mypy_cache/
@@ -19,10 +20,12 @@ venv/
 # Node (client)
 client/node_modules/
 client/.next/
+client/dist/
 
 # Env
 .env
 .env.local
+.env.*
 
 # Tests
 htmlcov/

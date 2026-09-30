@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from decimal import Decimal
-from datetime import datetime
+from datetime import datetime, timezone
 from .value_objects import Symbol, Price, Quantity, Timestamp, Side, Candle_static, Interval, TradeStatus, PnL
 
 
@@ -141,7 +141,7 @@ class Candle:
     @classmethod
     def from_static(cls, static: Candle_static) -> "Candle":
         """Convierte un Candle_static (histórico) a Candle."""
-        now = Timestamp(datetime.now())
+        now = Timestamp(datetime.now(timezone.utc))
         return cls(
             ohlcv=static,
             close_time=static.timestamp,

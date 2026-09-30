@@ -88,7 +88,7 @@ def test_real_adapters_are_valid() -> None:
     """Test that our real adapters pass validation"""
     
     # These imports will fail if adapters don't implement all methods
-    from modules.trading.infrastructure.postgre_adapter import PostgreAdapter
+    from modules.trading.infrastructure.postgre_adapter import PostgresAdapter
     from modules.trading.infrastructure.binance_adapter import BinanceAdapter
     from modules.trading.infrastructure.binance_stream_adapter import BinanceStreamAdapter
     from modules.trading.infrastructure.mocks.mock_exchange_adapter import MockExchangeAdapter

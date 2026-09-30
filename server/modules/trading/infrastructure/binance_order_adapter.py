@@ -10,7 +10,7 @@ API Keys:
 """
 import logging
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Optional
 
@@ -129,7 +129,7 @@ class BinanceOrderAdapter(OrderPort, metaclass=AdapterMeta):
                 price=Price(Decimal(response["price"]) or Decimal("0.01")),
                 side=Side.BUY if response["side"] == "BUY" else Side.SELL,
                 status=TradeStatus.CANCELLED,
-                timestamp=Timestamp(datetime.now())
+                timestamp=Timestamp(datetime.now(timezone.utc))
             )
             
         except Exception as e:
@@ -197,7 +197,7 @@ class BinanceOrderAdapter(OrderPort, metaclass=AdapterMeta):
             price=Price(avg_price),
             side=side,
             status=status,
-            timestamp=Timestamp(datetime.fromtimestamp(response["transactTime"] / 1000))
+            timestamp=Timestamp(datetime.fromtimestamp(response["transactTime"] / 1000, timezone.utc))
         )
 
     async def __aenter__(self) -> "BinanceOrderAdapter":

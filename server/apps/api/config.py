@@ -1,4 +1,4 @@
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field
 from functools import lru_cache
 from typing import Optional
@@ -26,11 +26,9 @@ class Settings(BaseSettings):
     binance_secret_key: Optional[str] = Field(default=None, alias="BINANCE_SECRET_KEY")
     binance_testnet: bool = Field(default=True, alias="BINANCE_TESTNET")
 
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        extra = "ignore"  # Ignora variables de entorno no definidas
-        populate_by_name = True  # Permite usar tanto el nombre como el alias
+    model_config = SettingsConfigDict(
+        env_file=".env", env_file_encoding="utf-8", extra="ignore", populate_by_name=True
+    )
 
 
 @lru_cache

@@ -22,13 +22,9 @@ import {
   type BacktestRequest
 } from "@/lib/api"
 import { CRYPTO_PAIRS, TIMEFRAME_LABELS } from "@/lib/trading-data"
-import { createChart, type IChartApi, type ISeriesApi, type CandlestickData, type UTCTimestamp } from "lightweight-charts"
+import { createChart, type IChartApi, type ISeriesApi, type CandlestickData, type UTCTimestamp, type Time } from "lightweight-charts"
 
-// Helper para convertir UTC timestamp a timestamp local
-function utcToLocal(utcTimestamp: number): number {
-  const offsetSeconds = new Date().getTimezoneOffset() * 60
-  return utcTimestamp - offsetSeconds
-}
+import { formatUtcDateTime, mergeCandles, tradeMarkers } from "@/lib/chart-time"
 
 export function BacktestPanel() {
   // Form state
@@ -53,15 +49,12 @@ export function BacktestPanel() {
 
   useEffect(() => {
     loadStrategies()
-    return () => {
-      chartRef.current?.remove()
-    }
   }, [])
 
   // Initialize chart when we have candles
   useEffect(() => {
     if (result?.candles && chartContainerRef.current) {
-      initChart()
+      return initChart()
     }
   }, [result?.candles])
 
@@ -116,9 +109,6 @@ export function BacktestPanel() {
   const initChart = () => {
     if (!chartContainerRef.current || !result?.candles) return
     
-    // Remove existing chart
-    chartRef.current?.remove()
-    
     const chart = createChart(chartContainerRef.current, {
       layout: {
         background: { color: 'transparent' },
@@ -128,6 +118,7 @@ export function BacktestPanel() {
         vertLines: { color: 'rgba(255, 255, 255, 0.05)' },
         horzLines: { color: 'rgba(255, 255, 255, 0.05)' },
       },
+      localization: { timeFormatter: (time: Time) => formatUtcDateTime(time as number) + ' UTC' },
       width: chartContainerRef.current.clientWidth,
       height: 300,
       timeScale: {
@@ -152,9 +143,9 @@ export function BacktestPanel() {
     
     candleSeriesRef.current = candleSeries
     
-    // Set candle data (convert UTC to local time)
-    const candleData: CandlestickData[] = result.candles.map(c => ({
-      time: utcToLocal(c.time) as UTCTimestamp,
+    // Use the same UTC instants for candles, markers and table rows.
+    const candleData: CandlestickData[] = mergeCandles(result.candles).map(c => ({
+      time: c.time as UTCTimestamp,
       open: c.open,
       high: c.high,
       low: c.low,
@@ -163,38 +154,9 @@ export function BacktestPanel() {
     
     candleSeries.setData(candleData)
     
-    // Set trade markers if available (also convert to local time)
-    if (result.trades && result.trades.length > 0) {
-      const markers = result.trades.flatMap(trade => {
-        const entryTimeUtc = typeof trade.entry_time === 'string' 
-          ? Math.floor(new Date(trade.entry_time).getTime() / 1000)
-          : trade.entry_time
-        const exitTimeUtc = typeof trade.exit_time === 'string'
-          ? Math.floor(new Date(trade.exit_time).getTime() / 1000)
-          : trade.exit_time
-        
-        return [
-          {
-            time: utcToLocal(entryTimeUtc) as UTCTimestamp,
-            position: 'belowBar' as const,
-            color: '#16c784',
-            shape: 'arrowUp' as const,
-            text: 'BUY',
-            size: 1,
-          },
-          {
-            time: utcToLocal(exitTimeUtc) as UTCTimestamp,
-            position: 'aboveBar' as const,
-            color: '#ea3943',
-            shape: 'arrowDown' as const,
-            text: 'SELL',
-            size: 1,
-          }
-        ]
-      })
-      
-      candleSeries.setMarkers(markers)
-    }
+    candleSeries.setMarkers(tradeMarkers(
+      candleData as { time: number }[], result.trades || [], result.interval,
+    ))
     
     chart.timeScale().fitContent()
     
@@ -206,7 +168,12 @@ export function BacktestPanel() {
     }
     
     window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
+    return () => {
+      window.removeEventListener('resize', handleResize)
+      chart.remove()
+      chartRef.current = null
+      candleSeriesRef.current = null
+    }
   }
 
   const handleRunBacktest = async () => {
@@ -511,7 +478,7 @@ export function BacktestPanel() {
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium flex items-center justify-between">
-                  <span>Price Chart with Trades</span>
+                  <span>Price Chart with Trades (UTC)</span>
                   <Badge variant="outline" className="text-xs">
                     {result.symbol} • {result.interval}
                   </Badge>
@@ -545,8 +512,8 @@ export function BacktestPanel() {
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead className="text-xs">Entry Time</TableHead>
-                          <TableHead className="text-xs">Exit Time</TableHead>
+                          <TableHead className="text-xs">Entry Time (UTC)</TableHead>
+                          <TableHead className="text-xs">Exit Time (UTC)</TableHead>
                           <TableHead className="text-xs text-right">Entry</TableHead>
                           <TableHead className="text-xs text-right">Exit</TableHead>
                           <TableHead className="text-xs text-right">PnL</TableHead>
@@ -556,14 +523,10 @@ export function BacktestPanel() {
                         {result.trades.map((trade, i) => (
                           <TableRow key={i}>
                             <TableCell className="text-xs">
-                              {typeof trade.entry_time === 'string' 
-                                ? new Date(trade.entry_time).toLocaleString()
-                                : new Date(trade.entry_time * 1000).toLocaleString()}
+                              {formatUtcDateTime(trade.entry_time)}
                             </TableCell>
                             <TableCell className="text-xs">
-                              {typeof trade.exit_time === 'string'
-                                ? new Date(trade.exit_time).toLocaleString()
-                                : new Date(trade.exit_time * 1000).toLocaleString()}
+                              {formatUtcDateTime(trade.exit_time)}
                             </TableCell>
                             <TableCell className="text-xs text-right">
                               ${trade.entry_price.toLocaleString()}

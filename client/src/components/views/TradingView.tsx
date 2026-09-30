@@ -37,13 +37,14 @@ export function TradingView({
   
   // Load trades - all trades or filtered by trader
   useEffect(() => {
+    let disposed = false
+    setTrades([])
     const loadTrades = async () => {
-      setLoadingTrades(true)
       try {
         if (isViewingTrader && chartConfig.portfolioId) {
           // Load trades for specific trader
           const result = await getPortfolioTrades(chartConfig.portfolioId, chartConfig.traderId)
-          setTrades(result.trades)
+          if (!disposed) setTrades(result.trades)
         } else {
           // Load all trades from all portfolios
           const portfolios = await listPortfolios()
@@ -58,16 +59,22 @@ export function TradingView({
           }
           // Sort by exit_time descending
           allTrades.sort((a, b) => new Date(b.exit_time).getTime() - new Date(a.exit_time).getTime())
-          setTrades(allTrades.slice(0, 50)) // Limit to 50 most recent
+          if (!disposed) setTrades(allTrades.slice(0, 50)) // Limit to 50 most recent
         }
       } catch (error) {
         console.error("Error loading trades:", error)
       } finally {
-        setLoadingTrades(false)
+        if (!disposed) setLoadingTrades(false)
       }
     }
     
-    loadTrades()
+    setLoadingTrades(true)
+    void loadTrades()
+    const timer = window.setInterval(loadTrades, 10000)
+    return () => {
+      disposed = true
+      window.clearInterval(timer)
+    }
   }, [isViewingTrader, chartConfig.portfolioId, chartConfig.traderId])
   
   const clearTraderView = () => {
@@ -169,8 +176,7 @@ export function TradingView({
               <TradingViewChart 
                 symbol={chartConfig.symbol} 
                 interval={chartConfig.interval}
-                portfolioId={chartConfig.portfolioId}
-                traderId={chartConfig.traderId}
+                trades={trades}
                 onPriceUpdate={onPriceUpdate} 
               />
             </div>

@@ -12,11 +12,10 @@ from asyncio import Queue, TaskGroup
 
 from typing import Dict, List, Set, Tuple
 from decimal import Decimal
-from datetime import datetime
 
 from ...domain.ports import OrderPort, StreamPort, ExchangePort
 from ...application.services.portfolio_manager import PortfolioManager
-from ...domain.value_objects import Symbol, Interval, Signal, Quantity, Side, TradeStatus, Timestamp, Price
+from ...domain.value_objects import Symbol, Interval, Signal, Quantity, Side, TradeStatus, Price
 
 from ...domain.aggregates import Trader
 from ...domain.entities import Candle, Position, Order, OrderResponse, Trade
@@ -266,7 +265,7 @@ class TradingEngine:
                         side=Side.BUY,
                         entry_price=response.price,
                         quantity=response.quantity,
-                        entry_time=Timestamp(datetime.now()),
+                        entry_time=response.timestamp,
                         target_quantity=response.quantity,
                         status=TradeStatus.EXECUTED)
                     await self._portfolio_manager.open_position(order.trader_id, position)

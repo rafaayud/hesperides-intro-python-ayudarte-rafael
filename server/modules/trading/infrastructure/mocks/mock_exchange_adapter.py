@@ -2,7 +2,7 @@ from ...domain.ports import ExchangePort
 from ...domain.value_objects import Symbol, Interval, Timestamp, Candle_static, Price, Quantity
 from ...domain.utils import AdapterMeta, timed_async
 from decimal import Decimal
-from datetime import datetime
+from datetime import datetime, timezone
 import random
 import asyncio
 import logging
@@ -130,12 +130,12 @@ class MockExchangeAdapter(ExchangePort, metaclass=AdapterMeta):
             
             # Todas son velas cerradas (no incluye la actual en vivo)
             for candle in candles:
-                assert candle.timestamp < datetime.now()
+                assert candle.timestamp < datetime.now(timezone.utc)
             ```
         """
         candles = []
         seconds = self._interval_to_seconds(interval)
-        now = datetime.now().timestamp()
+        now = datetime.now(timezone.utc).timestamp()
         
         # Variable LOCAL que evoluciona correctamente en el tiempo
         # No modifica self._current_price para evitar acumulación incorrecta
@@ -144,7 +144,7 @@ class MockExchangeAdapter(ExchangePort, metaclass=AdapterMeta):
         for i in range(limit):
             # Calcular timestamp: más antiguo primero, más reciente último
             # Ejemplo: limit=10, i=0 genera la vela más antigua, i=9 la más reciente
-            ts = datetime.fromtimestamp(now - seconds * (limit - i - 1))
+            ts = datetime.fromtimestamp(now - seconds * (limit - i - 1), timezone.utc)
             
             # Generar vela usando precio específico (función pura, sin efectos secundarios)
             candle = self._generate_candle_with_price(symbol, interval, ts, price)
@@ -181,7 +181,7 @@ class MockExchangeAdapter(ExchangePort, metaclass=AdapterMeta):
             List of closed candles from start_time to now (excluding current candle)
         """
         seconds = self._interval_to_seconds(interval)
-        now = datetime.now().timestamp()
+        now = datetime.now(timezone.utc).timestamp()
         diff = now - start_time.timestamp.timestamp()
         num_candles = int(diff / seconds) + 1
         

@@ -71,7 +71,7 @@ class CandleBuffer:
         # Validation 2: temporal alignment with session_origin
         if self.session_origin is not None:
             # Restar datetime objects directamente, no Timestamp objects
-            offset = candle_closed.ohlcv.timestamp - self.session_origin.timestamp
+            offset = candle_closed.ohlcv.timestamp.timestamp - self.session_origin.timestamp
             offset_seconds = int(offset.total_seconds())
             if offset_seconds % self.timeframe_seconds != 0:
                 raise ValueError(

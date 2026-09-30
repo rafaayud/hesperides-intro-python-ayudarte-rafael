@@ -2,7 +2,7 @@ from ...domain.ports import OrderPort
 from ...domain.entities import OrderResponse
 from ...domain.value_objects import Symbol, Price, Quantity, Timestamp, TradeStatus, Side
 from decimal import Decimal
-from datetime import datetime
+from datetime import datetime, timezone
 import random
 from ...domain.utils.metaclasses import AdapterMeta
 
@@ -127,7 +127,7 @@ class MockOrderAdapter(OrderPort, metaclass=AdapterMeta):
             price=Price(avg_price),
             side=Side.BUY,
             status=status,
-            timestamp=Timestamp(datetime.now())
+            timestamp=Timestamp(datetime.now(timezone.utc))
         )
     
     async def sell_market(self, symbol: Symbol, quantity: Quantity) -> OrderResponse:
@@ -205,7 +205,7 @@ class MockOrderAdapter(OrderPort, metaclass=AdapterMeta):
             price=Price(avg_price),
             side=Side.SELL,
             status=status,
-            timestamp=Timestamp(datetime.now())
+            timestamp=Timestamp(datetime.now(timezone.utc))
         )
     
     async def get_balance(self, asset: str) -> Price:
@@ -261,7 +261,7 @@ class MockOrderAdapter(OrderPort, metaclass=AdapterMeta):
             price=Price(Decimal(order.get("avgPrice", "0.01"))),
             side=Side.BUY if order["side"] == "BUY" else Side.SELL,
             status=TradeStatus.CANCELLED,
-            timestamp=Timestamp(datetime.now())
+            timestamp=Timestamp(datetime.now(timezone.utc))
         )
     
     # Helper methods for testing

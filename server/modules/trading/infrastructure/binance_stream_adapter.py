@@ -6,7 +6,7 @@ import asyncio
 import aiohttp
 import logging
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal
 from typing import AsyncIterator
 from tenacity import retry, stop_after_attempt, wait_exponential
@@ -128,7 +128,7 @@ class BinanceStreamAdapter(StreamPort, metaclass=AdapterMeta):
         
         ohlcv = Candle_static(
             symbol=symbol,
-            timestamp=Timestamp(datetime.fromtimestamp(k["t"] / 1000)),
+            timestamp=Timestamp(datetime.fromtimestamp(k["t"] / 1000, timezone.utc)),
             open=Price(Decimal(k["o"])),
             high=Price(Decimal(k["h"])),
             low=Price(Decimal(k["l"])),
@@ -140,9 +140,9 @@ class BinanceStreamAdapter(StreamPort, metaclass=AdapterMeta):
         # symbol, interval, open_time se obtienen de ohlcv (sin duplicación)
         return Candle(
             ohlcv=ohlcv,
-            close_time=Timestamp(datetime.fromtimestamp(k["T"] / 1000)),
-            event_time=Timestamp(datetime.fromtimestamp(data["E"] / 1000)),
-            ingestion_time=Timestamp(datetime.now()),
+            close_time=Timestamp(datetime.fromtimestamp(k["T"] / 1000, timezone.utc)),
+            event_time=Timestamp(datetime.fromtimestamp(data["E"] / 1000, timezone.utc)),
+            ingestion_time=Timestamp(datetime.now(timezone.utc)),
             trades_count=k["n"],
             is_closed=k["x"]
         )

@@ -68,6 +68,7 @@ class PostgresAdapter(StoragePort, metaclass=AdapterMeta):
                     return 
         except Exception as e:
             logging.error(f"Error saving candles: {e}")
+            raise
             
 
     @timed_async
@@ -81,10 +82,13 @@ class PostgresAdapter(StoragePort, metaclass=AdapterMeta):
                 async with connection.transaction():
                     result = await connection.fetch(
                         """
-                        SELECT * FROM candles
-                        WHERE symbol = $1 AND interval = $2
+                        SELECT * FROM (
+                            SELECT * FROM candles
+                            WHERE symbol = $1 AND interval = $2
+                            ORDER BY open_time DESC
+                            LIMIT $3
+                        ) AS recent_candles
                         ORDER BY open_time ASC
-                        LIMIT $3
                         """,
                         str(symbol), interval.value, limit
                     )

@@ -30,7 +30,7 @@ def test_detects_hammer():
     """Should detect hammer pattern"""
     pattern = Hammer()
 
-    candles = [make_candle(open=100, high=100.2, low=94, close=101)]
+    candles = [make_candle(open=100, high=101.2, low=94, close=101)]
     
     assert pattern.is_pattern(candles) is True
 
@@ -108,7 +108,7 @@ def test_buy_on_bullish_pattern():
     """Should BUY when bullish pattern detected"""
     strategy = CandlePatternStrategy(patterns=[Hammer()])
     # Hammer válido: body=1, lower_shadow=6, upper_shadow=0.2
-    candles = [make_candle(open=100, high=100.2, low=94, close=101)]
+    candles = [make_candle(open=100, high=101.2, low=94, close=101)]
     
     assert strategy.generate_signal(candles) == Signal.BUY
 

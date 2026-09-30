@@ -10,24 +10,11 @@ import {
 } from "@/components/ui/table"
 import { TrendingUp, TrendingDown, History, Loader2 } from "lucide-react"
 import type { Trade } from "@/lib/api"
+import { formatUtcDateTime } from "@/lib/chart-time"
 
 interface TradesTableProps {
   trades: Trade[]
   loading?: boolean
-}
-
-function formatDate(dateString: string): string {
-  try {
-    const date = new Date(dateString)
-    return date.toLocaleString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    })
-  } catch {
-    return dateString
-  }
 }
 
 function formatPrice(price: number): string {
@@ -62,7 +49,7 @@ export function TradesTable({ trades, loading }: TradesTableProps) {
       <Table>
         <TableHeader>
           <TableRow className="hover:bg-transparent">
-            <TableHead className="w-[120px]">Time</TableHead>
+            <TableHead className="w-[120px]">Time (UTC)</TableHead>
             <TableHead className="w-[100px]">Symbol</TableHead>
             <TableHead className="text-right w-[100px]">Entry</TableHead>
             <TableHead className="text-right w-[100px]">Exit</TableHead>
@@ -80,7 +67,7 @@ export function TradesTable({ trades, loading }: TradesTableProps) {
             return (
               <TableRow key={trade.id || index} className="group hover:bg-muted/30">
                 <TableCell className="font-mono text-xs text-muted-foreground">
-                  {formatDate(trade.exit_time || trade.entry_time)}
+                  {formatUtcDateTime(trade.exit_time || trade.entry_time)}
                 </TableCell>
                 <TableCell className="font-medium">
                   <span className="text-sm">{trade.symbol.replace('USDT', '')}</span>

@@ -5,7 +5,7 @@ from ...domain.utils import AdapterMeta, timed_async
 from typing import AsyncIterator
 from decimal import Decimal
 import asyncio
-from datetime import datetime
+from datetime import datetime, timezone
 import random
 
 
@@ -35,7 +35,7 @@ class MockStreamAdapter(StreamPort, metaclass=AdapterMeta):
                 low=Price(Decimal(str(price - 1))),
                 close=Price(Decimal(str(price + 0.5))),
                 volume=Quantity(Decimal("100")),
-                timestamp=Timestamp(datetime.now())
+                timestamp=Timestamp(datetime.now(timezone.utc))
             ))
             candle.is_closed = True  # Simular vela cerrada
             

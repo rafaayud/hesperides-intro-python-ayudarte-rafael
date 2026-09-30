@@ -27,7 +27,7 @@ class Hammer(CandlestickPattern):
         upper_shadow = c.high.value - max(c.open.value, c.close.value)
         
         # Hammer: lower shadow >= 2x body, small upper shadow
-        return lower_shadow >= 2 * body and upper_shadow <= body * 0.5
+        return lower_shadow >= 2 * body and upper_shadow <= body / 2
 
 
 class ShootingStar(CandlestickPattern):
@@ -54,7 +54,7 @@ class ShootingStar(CandlestickPattern):
         lower_shadow = min(c.open.value, c.close.value) - c.low.value
         
         # Shooting Star: upper shadow >= 2x body, small lower shadow
-        return upper_shadow >= 2 * body and lower_shadow <= body * 0.5
+        return upper_shadow >= 2 * body and lower_shadow <= body / 2
 
 
 class BullishEngulfing(CandlestickPattern):

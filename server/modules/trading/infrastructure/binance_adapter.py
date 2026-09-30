@@ -6,7 +6,7 @@ from ..domain.entities import Candle
 from ..domain.utils import AdapterMeta, timed_async
 from decimal import Decimal
 from typing import AsyncIterator
-from datetime import datetime
+from datetime import datetime, timezone
 import logging
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 from .exceptions import RateLimitError, IPBannedError
@@ -184,7 +184,7 @@ class BinanceAdapter(ExchangePort, metaclass=AdapterMeta):
         
         return Candle_static(
             symbol=symbol,
-            timestamp=Timestamp(datetime.fromtimestamp(int(raw[0])/1000)),
+            timestamp=Timestamp(datetime.fromtimestamp(int(raw[0]) / 1000, timezone.utc)),
             open=Price(Decimal(raw[1])),
             high=Price(Decimal(raw[2])),
             low=Price(Decimal(raw[3])),

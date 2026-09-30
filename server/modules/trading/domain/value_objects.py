@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from decimal import Decimal
 from enum import Enum
-from datetime import datetime
+from datetime import datetime, timezone
 import logging
 
 #!!!!!!!!!!!!!!!!!!!!!!!!!!!Posible implementacion de metaclases
@@ -167,8 +167,14 @@ class Quantity():
             
 @dataclass(frozen=True, slots=True)
 class Timestamp():
-    """A timestamp value object."""
+    """An instant normalized to UTC. Legacy naive inputs are interpreted as UTC."""
     timestamp: datetime
+
+    def __post_init__(self) -> None:
+        value = self.timestamp
+        if value.tzinfo is None:
+            value = value.replace(tzinfo=timezone.utc)
+        object.__setattr__(self, "timestamp", value.astimezone(timezone.utc))
 
     def __str__(self) -> str:
         return f"{self.timestamp:%Y-%m-%d %H:%M:%S}"

@@ -1,5 +1,12 @@
 .venv/
+.venv-*/
+.pytest_cache/
+.ruff_cache/
+client/dist/
+*.tsbuildinfo
 __pycache__/
 *.pyc
 .env
+.env.*
+!.env.example
 .DS_Store
